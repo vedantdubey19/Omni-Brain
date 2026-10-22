@@ -41,6 +41,10 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-models-all-MiniLM-L6-v2
 
+      - name: Pre-download embedding model for tests
+        run: |
+          python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
       - name: Run pytest
         run: |
           pytest -v --maxfail=1

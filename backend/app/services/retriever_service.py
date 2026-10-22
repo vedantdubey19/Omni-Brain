@@ -12,6 +12,15 @@ _EMBEDDER_LOCK = threading.RLock()
 _GLOBAL_EMBEDDER = None
 
 
+class DummyFallbackEmbedder:
+    """Safe fallback embedder producing 384-dim zero vectors if offline without model cache."""
+    def encode(self, texts, **kwargs):
+        import numpy as np
+        if isinstance(texts, str):
+            return np.zeros(384, dtype=np.float32)
+        return np.zeros((len(texts), 384), dtype=np.float32)
+
+
 def get_shared_embedder():
     """Thread-safe retrieval/initialization of the shared SentenceTransformer singleton."""
     global _GLOBAL_EMBEDDER
@@ -22,7 +31,11 @@ def get_shared_embedder():
                 try:
                     _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
                 except Exception:
-                    _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
+                    try:
+                        _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
+                    except Exception as e:
+                        print(f"[RetrieverService] Notice: Model unavailable ({e}), using fallback embedder.")
+                        _GLOBAL_EMBEDDER = DummyFallbackEmbedder()
     return _GLOBAL_EMBEDDER
 
 
