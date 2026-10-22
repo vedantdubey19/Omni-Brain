@@ -24,8 +24,22 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 1. Parses embedded text, tables, and charts with OCR fallback
 2. Retrieves relevant semantic text chunks from a Qdrant vector database
 3. Queries historical financial records via a safe Text-to-SQL agent
-4. Analyzes embedded figures and visual trends using a Vision-Language Model (GPT-4o)
+4. Analyzes embedded figures and visual trends using a Vision-Language Model (Gemini / GPT-4o)
 5. Synthesizes outputs into a cited response — with every claim traceable back to its source page, table, or chart
+
+---
+
+## Application & Architecture Gallery
+
+| **1. Streamlit Interactive Dashboard** | **2. FastAPI OpenAPI / Swagger Gateway** |
+|:---:|:---:|
+| ![Streamlit UI](docs/screenshots/01_streamlit_dashboard.png) | ![FastAPI Docs](docs/screenshots/02_fastapi_swagger_docs.png) |
+| *Multi-Agent conversational interface with document ingestion and session routing* | *REST API gateway with LangGraph orchestration endpoints* |
+
+| **3. Extracted Multimodal Visual Artifact** |
+|:---:|
+| ![Extracted Chart](docs/screenshots/03_extracted_multimodal_chart.png) |
+| *Embedded quarterly revenue chart parsed by PyMuPDF and analyzed by the VisionAgent* |
 
 ---
 
