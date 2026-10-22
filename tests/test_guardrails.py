@@ -107,3 +107,33 @@ def test_guardrails_output_redacts_api_keys():
     assert "pk-lf-abcdef1234567890" not in sanitized_lf
     assert "sk-lf-1234567890abcdef" not in sanitized_lf
     assert "[REDACTED_LANGFUSE_KEY]" in sanitized_lf
+
+
+def test_guardrails_fix7_broadened_jokes_and_allowed_doc_queries():
+    """
+    Fix 7 Regression Tests:
+    - Block: 'tell me a funny joke', 'tell me a really long joke', 'write me a short poem', 'make me laugh'
+    - Allow: 'What is the remote work policy?', 'Summarize the risk factors', 'What story does the revenue chart tell?'
+    """
+    blocked_queries = [
+        "tell me a funny joke",
+        "tell me a really long joke",
+        "write me a short poem",
+        "make me laugh"
+    ]
+    for q in blocked_queries:
+        response = client.post("/api/v1/query", json={"question": q, "top_k": 2})
+        assert response.status_code == 200, f"Query '{q}' failed HTTP"
+        data = response.json()
+        assert data["status"] == "BLOCKED_BY_GUARDRAILS", f"Expected '{q}' to be blocked, got {data['status']}"
+
+    allowed_queries = [
+        "What is the remote work policy?",
+        "Summarize the risk factors",
+        "What story does the revenue chart tell?"
+    ]
+    for q in allowed_queries:
+        response = client.post("/api/v1/query", json={"question": q, "top_k": 2})
+        assert response.status_code == 200, f"Query '{q}' failed HTTP"
+        data = response.json()
+        assert data["status"] == "SUCCESS", f"Expected '{q}' to be allowed, but was blocked: {data.get('answer')}"

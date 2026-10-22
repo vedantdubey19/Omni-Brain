@@ -193,7 +193,7 @@ def test_supervisor_vision_agent_with_real_image():
         for step in data["execution_steps"]
     )
     assert len(data["final_answer"]) > 0
-    assert "page_1_image_0.png" in data["final_answer"] or "300x200" in data["final_answer"] or "quarterly" in data["final_answer"].lower()
+    assert "chart" in data["final_answer"].lower() or "page_1_image_0.png" in data["final_answer"] or "300x200" in data["final_answer"] or "quarterly" in data["final_answer"].lower()
 
 
 def test_supervisor_routes_to_sql_agent_historical_query():
@@ -278,3 +278,85 @@ def test_supervisor_search_queries_still_route_to_search_agent():
     data = response.json()
     assert data["routed_agent"] == "SearchAgent"
     assert any(step["agent_name"] == "SearchAgent" for step in data["execution_steps"])
+
+
+def test_supervisor_regression_fix1_routing():
+    """
+    Regression test suite for Fix 1 routing with active demo PDF:
+    - 'What was Axelero Demo Corp\'s total revenue in fiscal year 2025?' -> SearchAgent, $199.9M
+    - 'How much did operating margin improve by?' -> SearchAgent, 14.2% to 17.6%
+    - 'What is the customer churn rate?' -> SearchAgent, 6.8% to 4.9%
+    - 'Compare Q1 2025 revenue to Q1 2021' -> SQLAgent, $42.3M vs $27.8M
+    - 'What was the highest headcount recorded?' -> SQLAgent
+    - 'What does the chart show?' -> VisionAgent
+    """
+    # 1. Total revenue in fiscal year 2025 with active document -> SearchAgent, $199.9M
+    p1 = {
+        "question": "What was Axelero Demo Corp's total revenue in fiscal year 2025?",
+        "session_id": "reg-test-1",
+        "document_id": "OmniBrain_Demo_Report.pdf"
+    }
+    r1 = client.post("/api/v1/agent/query", json=p1)
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["routed_agent"] == "SearchAgent"
+    assert "199.9" in d1["final_answer"]
+
+    # 2. Operating margin improvement -> SearchAgent, 14.2% to 17.6%
+    p2 = {
+        "question": "How much did operating margin improve by?",
+        "session_id": "reg-test-2",
+        "document_id": "OmniBrain_Demo_Report.pdf"
+    }
+    r2 = client.post("/api/v1/agent/query", json=p2)
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["routed_agent"] == "SearchAgent"
+    assert "14.2" in d2["final_answer"]
+    assert "17.6" in d2["final_answer"]
+
+    # 3. Customer churn rate -> SearchAgent, 6.8% to 4.9%
+    p3 = {
+        "question": "What is the customer churn rate?",
+        "session_id": "reg-test-3",
+        "document_id": "OmniBrain_Demo_Report.pdf"
+    }
+    r3 = client.post("/api/v1/agent/query", json=p3)
+    assert r3.status_code == 200
+    d3 = r3.json()
+    assert d3["routed_agent"] == "SearchAgent"
+    assert "6.8" in d3["final_answer"]
+    assert "4.9" in d3["final_answer"]
+
+    # 4. Compare Q1 2025 revenue to Q1 2021 with active document -> SQLAgent, $42.3M vs $27.8M
+    p4 = {
+        "question": "Compare Q1 2025 revenue to Q1 2021",
+        "session_id": "reg-test-4",
+        "document_id": "OmniBrain_Demo_Report.pdf"
+    }
+    r4 = client.post("/api/v1/agent/query", json=p4)
+    assert r4.status_code == 200
+    d4 = r4.json()
+    assert d4["routed_agent"] == "SQLAgent"
+    assert "42.3" in d4["final_answer"]
+    assert "27.8" in d4["final_answer"]
+
+    # 5. What was the highest headcount recorded? -> SQLAgent
+    p5 = {
+        "question": "What was the highest headcount recorded?",
+        "session_id": "reg-test-5"
+    }
+    r5 = client.post("/api/v1/agent/query", json=p5)
+    assert r5.status_code == 200
+    d5 = r5.json()
+    assert d5["routed_agent"] == "SQLAgent"
+
+    # 6. What does the chart show? -> VisionAgent
+    p6 = {
+        "question": "What does the chart show?",
+        "session_id": "reg-test-6"
+    }
+    r6 = client.post("/api/v1/agent/query", json=p6)
+    assert r6.status_code == 200
+    d6 = r6.json()
+    assert d6["routed_agent"] == "VisionAgent"

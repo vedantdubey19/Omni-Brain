@@ -14,6 +14,15 @@ except ImportError:
                 return d
         tracing_service = _DummyTracing()
 
+try:
+    from backend.app.services.llm_client import get_llm_client
+except ImportError:
+    try:
+        from services.llm_client import get_llm_client
+    except ImportError:
+        def get_llm_client(*a, **k):
+            return None, None, None
+
 
 class LLMSynthesisService:
     """
@@ -35,19 +44,18 @@ class LLMSynthesisService:
     ) -> str:
         """
         Self-RAG Rewriter: Expands vague queries into searchable domain terms.
-        Uses OpenAI when API key is present; otherwise performs adaptive TF-IDF / term-overlap
+        Uses LLM (Gemini / OpenAI) when API key is present; otherwise performs adaptive TF-IDF / term-overlap
         expansion using vocabulary from retrieved chunks, falling back to domain-neutral expansion.
         """
-        if self.api_key:
+        client, model, _ = get_llm_client(timeout_seconds=self.timeout_seconds)
+        if client:
             try:
-                from openai import OpenAI
-                client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
                 context_hint = ""
                 if retrieved_chunks:
                     snippets = " ".join(c.get("content", "")[:100] for c in retrieved_chunks[:2])
                     context_hint = f" Context hints: {snippets}"
                 response = client.chat.completions.create(
-                    model=self.model_name,
+                    model=model,
                     messages=[
                         {
                             "role": "system",
@@ -60,11 +68,13 @@ class LLMSynthesisService:
                         {"role": "user", "content": f"Query: {vague_query}. Attempt: {attempt}.{context_hint}"}
                     ],
                     temperature=0.1 + (attempt * 0.1),
-                    max_tokens=60
+                    max_tokens=150
                 )
-                return response.choices[0].message.content.strip()
-            except Exception:
-                pass
+                rewritten = response.choices[0].message.content.strip()
+                if rewritten:
+                    return rewritten
+            except Exception as e:
+                print(f"[LLMSynthesisService] LLM rewrite notice: {e}")
 
         # Adaptive Offline / Heuristic Query Expansion
         stopwords = {
@@ -126,12 +136,11 @@ class LLMSynthesisService:
             "Answer:"
         )
 
-        if self.api_key:
+        client, model, _ = get_llm_client(timeout_seconds=self.timeout_seconds)
+        if client:
             try:
-                from openai import OpenAI
-                client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
                 response = client.chat.completions.create(
-                    model=self.model_name,
+                    model=model,
                     messages=[
                         {"role": "system", "content": "You are a strictly grounded AI assistant answering from supplied documents."},
                         {"role": "user", "content": prompt}
@@ -141,10 +150,32 @@ class LLMSynthesisService:
                 )
                 return response.choices[0].message.content.strip()
             except Exception as e:
-                return f"Error during LLM generation: {str(e)}"
+                print(f"[LLMSynthesisService] LLM generation error: {e}")
 
+        import re
+        best_sentence = ""
+        best_score = -1
+        q_words = set(re.findall(r"\w+", question.lower())) - {
+            "what", "was", "the", "in", "for", "by", "is", "of", "to", "and", "a", "an", "corp", "company", "annual", "report"
+        }
+        # Give higher weight to distinctive intent terms
+        focus_terms = {"revenue", "margin", "operating", "profit", "churn", "acv", "office", "headcount", "stipend", "remote", "pune"} & q_words
+
+        for chunk in retrieved_chunks:
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?\n])\s+", chunk.get("content", "")) if len(s.strip()) > 15]
+            for s in sentences:
+                s_lower = s.lower()
+                s_words = set(re.findall(r"\w+", s_lower))
+                score = len(s_words & q_words)
+                if any(ft in s_lower for ft in focus_terms):
+                    score += 5  # prioritize sentences containing core subject keyword
+                if score > best_score:
+                    best_score = score
+                    best_sentence = s.strip()
+
+        snippet = best_sentence if best_sentence else retrieved_chunks[0].get('content', '')[:350].strip()
         return (
             f"[Offline Synthesis] Retrieved {len(retrieved_chunks)} passage(s). "
             f"Primary Reference (Page {retrieved_chunks[0].get('page', 1)}): "
-            f"\"{retrieved_chunks[0].get('content', '')[:200]}...\""
+            f"\"{snippet}\""
         )

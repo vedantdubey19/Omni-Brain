@@ -102,8 +102,8 @@ def get_vision_service() -> Optional[VisionAnalysisService]:
     return vision_service
 
 
-def classify_route(query: str) -> str:
-    """Determines target agent based on query characteristics."""
+def classify_route(query: str, document_id: Optional[str] = None) -> str:
+    """Determines target agent based on query characteristics and session document context."""
     query_lower = query.lower()
 
     # 1. Visual / Chart reasoning takes priority if visual artifact requested
@@ -111,29 +111,57 @@ def classify_route(query: str) -> str:
     if any(keyword.lower() in query_lower for keyword in visual_keywords):
         return "VisionAgent"
 
-    # 2. Text-to-SQL for structured, historical, or quantitative queries
-    sql_keywords = [
-        "historical",
-        "compare over time",
-        "how much",
-        "temporal",
-        "historical trend",
-        "trend over time",
-        "structured data",
-        "database",
-        "by year",
-        "between 20",
-        "from 20"
+    # 2. Text-to-SQL for structured, historical, or cross-period queries
+    cross_period_patterns = [
+        r"\bcompare\b",
+        r"\btrend\b",
+        r"\bover the years\b",
+        r"\bover time\b",
+        r"\bhistorical\b",
+        r"\bacross (quarters|years|all years)\b",
+        r"\b(highest|lowest|average)\b.{0,30}\brecorded\b",
+        r"\bheadcount\b",
+        r"\bemployee(s)?\b",
+        r"\bshow (all|every) q\d\b",
+        r"\bevery q[1-4]\b",
+        r"\ball q[1-4]s?\b",
+        r"\ball quarters\b",
+        r"\bbetween 20\d\d\s+and\s+20\d\d\b",
+        r"\bfrom 20\d\d\s+to\s+20\d\d\b",
+        r"\bstructured data\b",
+        r"\bdatabase\b",
+        r"\b(total\s+)?revenue\s+in\s+q[1-4]\s+20\d\d\b",
+        r"\b(revenue|profit|cogs|margin|headcount).{0,25}\b(q[1-4]|quarter\s*[1-4])\s*(?:of\s+)?20\d\d\b",
+        r"\b(q[1-4]|quarter\s*[1-4])\s*(?:of\s+)?20\d\d.{0,25}\b(revenue|profit|cogs|margin|headcount)\b",
+        r"\b(net\s+profit|profit|revenue|cogs|margin|headcount|expenses?).{0,25}\b20\d\d\b",
+        r"\b20\d\d.{0,25}\b(net\s+profit|profit|revenue|cogs|margin|headcount|expenses?)\b"
     ]
-    if any(keyword in query_lower for keyword in sql_keywords):
+    has_cross_period = any(re.search(pat, query_lower) for pat in cross_period_patterns)
+
+    # Context-aware routing: If document is active in session
+    if document_id:
+        if not has_cross_period:
+            return "SearchAgent"
+
+        # Cheap guard: check if top-1 retrieval has confident hit (score >= 0.65)
+        # without strong comparative cross-period wording
+        strong_comparative = any(re.search(pat, query_lower) for pat in [
+            r"\bcompare\b", r"\bacross (quarters|years|all)\b", r"\bover the years\b",
+            r"\bheadcount\b", r"\brecorded\b", r"\bshow (all|every) q\b"
+        ])
+        if not strong_comparative:
+            try:
+                retriever = get_retriever_service()
+                top1 = retriever.retrieve_relevant_chunks(query=query, top_k=1, document_id=document_id)
+                if top1 and top1[0].get("score", 0.0) >= 0.65:
+                    return "SearchAgent"
+            except Exception:
+                pass
+
         return "SQLAgent"
 
-    sql_patterns = [
-        r"\b(how much|historical|compare over time)\b",
-        r"\btrend\b.*(over time|by year|from \d{4}|between \d{4}|\b202\d\b)",
-        r"\b(revenue|profit|expense|headcount|margin)\b.*(by year|over time|from \d{4}|between \d{4}|\b202\d\b)"
-    ]
-    if any(re.search(pat, query_lower) for pat in sql_patterns):
+    # If no document is active
+    if has_cross_period:
         return "SQLAgent"
 
     return "SearchAgent"
@@ -145,7 +173,8 @@ def supervisor_node(state: AgentGraphState) -> Dict[str, Any]:
     Supervisor node that evaluates the query intent and assigns the appropriate target agent.
     """
     question = state.get("question", "")
-    target_agent = classify_route(question)
+    document_id = state.get("document_id")
+    target_agent = classify_route(question, document_id=document_id)
 
     current_steps = state.get("execution_steps") or []
     intent_desc = (

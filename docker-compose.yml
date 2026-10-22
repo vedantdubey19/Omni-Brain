@@ -18,6 +18,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: omnibrain_backend
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     environment:
@@ -37,6 +39,8 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: omnibrain_frontend
     command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    env_file:
+      - .env
     ports:
       - "8501:8501"
     environment:

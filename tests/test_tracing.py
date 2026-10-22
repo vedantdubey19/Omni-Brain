@@ -80,7 +80,7 @@ def test_tracing_e2e_agent_supervisor_workflow():
     validating connected trace spans for Supervisor routing and SearchAgent execution.
     """
     payload = {
-        "question": "What is the net profit trend across quarters?",
+        "question": "What were the enterprise risk factors described in the report?",
         "session_id": "tracing-test-session"
     }
     response = client.post("/api/v1/agent/query", json=payload)

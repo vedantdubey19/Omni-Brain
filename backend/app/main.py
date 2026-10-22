@@ -9,6 +9,10 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Service imports with robust fallbacks
 try:
@@ -22,6 +26,7 @@ try:
         AgentQueryRequest,
         AgentQueryResponse
     )
+    from backend.app.agents.supervisor import get_sql_service
 except ImportError:
     from services.guardrails_service import GuardrailsService
     from services.retriever_service import RetrieverService, preload_embedder
@@ -33,6 +38,11 @@ except ImportError:
         AgentQueryRequest,
         AgentQueryResponse
     )
+    try:
+        from agents.supervisor import get_sql_service
+    except ImportError:
+        def get_sql_service():
+            return None
 
 
 @asynccontextmanager
@@ -42,6 +52,23 @@ async def lifespan(app: FastAPI):
         preload_embedder()
     except Exception as e:
         print(f"[Lifespan] Embedding pre-warm notice: {e}")
+
+    # Auto-load axelero_historical_financials.csv if present and DB is empty
+    try:
+        active_sql = get_sql_service()
+        if active_sql and not active_sql.has_data():
+            default_csv_candidates = [
+                os.path.abspath("data/axelero_historical_financials.csv"),
+                os.path.abspath("axelero_historical_financials.csv")
+            ]
+            for csv_path in default_csv_candidates:
+                if os.path.exists(csv_path):
+                    active_sql.load_csv(csv_path)
+                    print(f"[Lifespan] Auto-loaded {csv_path} into SQL database.")
+                    break
+    except Exception as e:
+        print(f"[Lifespan] SQL auto-load notice: {e}")
+
     yield
 
 
@@ -528,6 +555,47 @@ async def clear_session_chat_history(session_id: str):
         "session_id": session_id,
         "message": f"Chat history for session '{session_id}' cleared successfully."
     }
+
+@app.post("/api/v1/sql/load-csv", status_code=status.HTTP_200_OK)
+async def load_sql_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV file to ingest structured historical financial data into SQLite.
+    Validates required columns, formats, and replaces existing company_financials table.
+    """
+    if not (file.filename and file.filename.lower().endswith(".csv")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only .csv files are supported."
+        )
+
+    # Size check: 10MB limit
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds maximum permitted limit of 10MB."
+        )
+
+    active_sql = get_sql_service()
+    if active_sql is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SQL Query service is unavailable."
+        )
+
+    try:
+        result = active_sql.load_csv(content)
+        return result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"CSV validation error: {str(ve)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load CSV: {str(e)}"
+        )
 
 @app.post("/api/v1/agent/query", response_model=AgentQueryResponse, status_code=status.HTTP_200_OK)
 async def query_agent_graph(request: AgentQueryRequest):

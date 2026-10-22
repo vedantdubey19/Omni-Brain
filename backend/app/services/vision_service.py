@@ -19,21 +19,32 @@ except ImportError:
         tracing_service = _DummyTracing()
 
 
+try:
+    from backend.app.services.llm_client import get_vision_client
+except ImportError:
+    try:
+        from services.llm_client import get_vision_client
+    except ImportError:
+        def get_vision_client(*a, **k):
+            return None, None, None
+
+
 class VisionAnalysisService:
     """
-    Multimodal Vision Analysis Service using GPT-4o Vision API.
+    Multimodal Vision Analysis Service using Gemini / GPT-4o Vision API.
     Extracts structured values, chart metrics, table data, and generates natural-language summaries.
     Provides graceful offline fallbacks when no vision-capable API key is configured.
     """
 
-    def __init__(self, model_name: str = "gpt-4o", timeout_seconds: float = 25.0):
+    def __init__(self, model_name: str = "gemini-2.5-flash", timeout_seconds: float = 25.0):
         self.model_name = model_name
         self.timeout_seconds = timeout_seconds
         self.api_key = os.getenv("OPENAI_API_KEY", "")
 
     def is_available(self) -> bool:
-        """Returns True if a valid OpenAI API key is configured for VLM calls."""
-        return bool(self.api_key and not self.api_key.startswith("sk-placeholder"))
+        """Returns True if a valid Gemini or OpenAI API key is configured for VLM calls."""
+        client, _, _ = get_vision_client()
+        return client is not None
 
     def find_image_for_query(self, document_id: Optional[str] = None, question: Optional[str] = None) -> Optional[str]:
         """
@@ -101,10 +112,10 @@ class VisionAnalysisService:
                 "is_fallback": False
             }
 
-        # 1. VLM Inference via OpenAI GPT-4o Vision if API Key is configured
-        if self.is_available():
+        # 1. VLM Inference via Gemini / OpenAI Vision if API Key is configured
+        client, vlm_model, provider = get_vision_client(timeout_seconds=self.timeout_seconds)
+        if client is not None:
             try:
-                from openai import OpenAI
                 mime_type, _ = mimetypes.guess_type(image_path)
                 if not mime_type:
                     mime_type = "image/png"
@@ -112,7 +123,6 @@ class VisionAnalysisService:
                 with open(image_path, "rb") as f:
                     b64_data = base64.b64encode(f.read()).decode("utf-8")
 
-                client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
                 prompt = (
                     "You are OmniBrain Vision Agent. You specialize in visual reasoning over document figures, charts, and tables.\n"
                     f"User Question: {question}\n\n"
@@ -121,7 +131,7 @@ class VisionAnalysisService:
                 )
 
                 response = client.chat.completions.create(
-                    model=self.model_name,
+                    model=vlm_model or self.model_name,
                     messages=[
                         {
                             "role": "user",
@@ -148,7 +158,8 @@ class VisionAnalysisService:
                     "extracted_data": {
                         "dimensions": f"{width}x{height}",
                         "format": img_format,
-                        "vlm_model": self.model_name
+                        "vlm_model": vlm_model or self.model_name,
+                        "provider": provider
                     },
                     "is_fallback": False
                 }

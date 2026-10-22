@@ -2,7 +2,9 @@ FROM python:3.11-slim
 
 # Prevent .pyc files & enable unbuffered stdout
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/root/.cache/huggingface \
+    SENTENCE_TRANSFORMERS_HOME=/root/.cache/huggingface
 
 WORKDIR /app
 
@@ -23,6 +25,9 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 # Install everything else, with a longer timeout and retries for slow connections
 RUN pip install --no-cache-dir --default-timeout=300 --retries 5 -r requirements.txt
+
+# Pre-download SentenceTransformer model into baked image cache so it works completely offline
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Copy project files
 COPY . .

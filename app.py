@@ -1,8 +1,20 @@
 import os
+import re
 import time
 import uuid
 import streamlit as st
 import requests
+
+def escape_dollars(text: str) -> str:
+    r"""
+    Escapes unescaped dollar signs ($ -> \$) to prevent Streamlit from
+    interpreting monetary figures (e.g., $199.9M ... $12M) as KaTeX LaTeX math.
+    Skips dollar signs that are already escaped.
+    """
+    if not text or not isinstance(text, str):
+        return text
+    return re.sub(r'(?<!\\)\$', r'\$', text)
+
 
 # ==========================================
 # CONFIG & BACKEND CONNECTIVITY (Fix 8)
@@ -251,24 +263,24 @@ for message in st.session_state.chat_history:
                         if agent_name == "SupervisorAgent":
                             route = details.get("route_chosen", routed)
                             reason = details.get("reasoning", "")
-                            st.markdown(f"- 🧭 **SupervisorAgent**: Routed to `{route}` *({reason})*")
+                            st.markdown(escape_dollars(f"- 🧭 **SupervisorAgent**: Routed to `{route}` *({reason})*"))
                         elif agent_name == "SearchAgent":
                             count = details.get("chunks_count", len(message.get("sources", [])))
-                            st.markdown(f"- 🔍 **SearchAgent**: Retrieved `{count}` chunk(s) via hybrid vector search")
+                            st.markdown(escape_dollars(f"- 🔍 **SearchAgent**: Retrieved `{count}` chunk(s) via hybrid vector search"))
                         elif agent_name == "SQLAgent":
                             executed_sql = details.get("executed_sql") or message.get("executed_sql", "")
                             rows_count = details.get("row_count", 0)
                             sql_text = f" `{executed_sql}`" if executed_sql else ""
-                            st.markdown(f"- 📊 **SQLAgent**: Executed SQLite query{sql_text} ({rows_count} record(s) returned)")
+                            st.markdown(escape_dollars(f"- 📊 **SQLAgent**: Executed SQLite query{sql_text} ({rows_count} record(s) returned)"))
                         elif agent_name == "VisionAgent":
                             img_path = details.get("image_path")
                             msg = f"Analyzed visual artifact `{os.path.basename(img_path)}`" if img_path else details.get("message", "Visual multimodal analysis executed.")
-                            st.markdown(f"- 👁️ **VisionAgent**: {msg}")
+                            st.markdown(escape_dollars(f"- 👁️ **VisionAgent**: {msg}"))
                         else:
-                            st.markdown(f"- ⚙️ **{agent_name}**: `{step.get('action_taken')}`")
+                            st.markdown(escape_dollars(f"- ⚙️ **{agent_name}**: `{step.get('action_taken')}`"))
 
                     if message.get("retry_count", 0) > 0:
-                        st.markdown(f"- 🔄 **Self-RAG Optimization**: Refined query through `{message['retry_count']}` retry attempt(s)")
+                        st.markdown(escape_dollars(f"- 🔄 **Self-RAG Optimization**: Refined query through `{message['retry_count']}` retry attempt(s)"))
 
             # Executed SQL Query viewer if applicable
             if message.get("executed_sql"):
@@ -278,7 +290,7 @@ for message in st.session_state.chat_history:
                         st.dataframe(message["sql_results"], use_container_width=True)
 
             # Main text answer
-            st.markdown(message["content"])
+            st.markdown(escape_dollars(message["content"]))
 
             # Sources accordion
             if message.get("sources"):
@@ -289,10 +301,10 @@ for message in st.session_state.chat_history:
                         score = source.get("score")
                         score_str = f" • Score: `{score:.4f}`" if score is not None else ""
                         content = source.get("content") or source.get("text", "")
-                        st.markdown(f"**{idx}. 📄 {fn}** (Page {page_num}{score_str})")
-                        st.caption(f"\"{content}\"")
+                        st.markdown(escape_dollars(f"**{idx}. 📄 {fn}** (Page {page_num}{score_str})"))
+                        st.text(content)
         else:
-            st.markdown(message["content"])
+            st.markdown(escape_dollars(message["content"]))
 
 
 # ------------------------------------------
@@ -309,7 +321,7 @@ if question:
     })
 
     with st.chat_message("user"):
-        st.markdown(question)
+        st.markdown(escape_dollars(question))
 
     # 2. Assistant execution via LangGraph Supervisor
     with st.chat_message("assistant"):
@@ -347,7 +359,7 @@ if question:
                                 route = details.get("route_chosen", routed_agent)
                                 reason = details.get("reasoning", "")
                                 st.write(f"🧭 **Supervisor Decision**: Routed to `{route}`")
-                                st.caption(f"Reasoning: {reason}")
+                                st.caption(escape_dollars(f"Reasoning: {reason}"))
                             elif agent_name == "SearchAgent":
                                 count = details.get("chunks_count", len(referenced_sources))
                                 st.write(f"🔍 **Search Agent**: Executed vector retrieval ({count} passages found)")
@@ -363,7 +375,7 @@ if question:
                                     st.write(f"👁️ **Vision Agent**: Multimodal visual analysis of `{os.path.basename(img_path)}`")
                                 else:
                                     msg = details.get("message", "Visual multimodal reasoning completed.")
-                                    st.write(f"👁️ **Vision Agent**: {msg}")
+                                    st.write(escape_dollars(f"👁️ **Vision Agent**: {msg}"))
                             else:
                                 st.write(f"⚙️ **{agent_name}**: {action}")
 
@@ -373,7 +385,7 @@ if question:
                         status_box.update(label=f"🤖 Handled by {routed_agent}", state="complete", expanded=False)
 
                     # Main Final Answer
-                    st.markdown(final_answer)
+                    st.markdown(escape_dollars(final_answer))
 
                     # Executed SQL Query accordion if applicable
                     if data.get("executed_sql"):
@@ -390,8 +402,8 @@ if question:
                                 page_num = source.get("page", 1)
                                 score = source.get("score", 0.0)
                                 content = source.get("content", "")
-                                st.markdown(f"**{idx}. 📄 {fn}** (Page {page_num} • Score: `{score:.4f}`)")
-                                st.caption(f"\"{content}\"")
+                                st.markdown(escape_dollars(f"**{idx}. 📄 {fn}** (Page {page_num} • Score: `{score:.4f}`)"))
+                                st.text(content)
 
                     # Save to session history
                     st.session_state.chat_history.append({
