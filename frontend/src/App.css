@@ -1322,3 +1322,61 @@ button {
     padding: 11px;
   }
 }
+
+/* =====================================
+   LOVABLE BLUSH / ROSE ACCENTS & CARDS
+===================================== */
+.rose-gradient {
+  background: linear-gradient(135deg, #F43F5E 0%, #BE185D 50%, #9D174D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+.suggestion-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.suggestion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #FFFFFF;
+  border: 1px solid #FCE7F3;
+  border-radius: 12px;
+  color: #831843;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px -2px rgba(244, 63, 94, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.suggestion-card:hover {
+  background: #FFF5F7;
+  border-color: #F43F5E;
+  color: #BE185D;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px -3px rgba(244, 63, 94, 0.15);
+}
+
+.suggestion-card .arrow {
+  color: #BE185D;
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.suggestion-card:hover .arrow {
+  transform: translateX(4px);
+}
+
+@media (max-width: 640px) {
+  .suggestion-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

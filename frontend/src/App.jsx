@@ -361,16 +361,15 @@ function App() {
 
           <div>
             <p className="eyebrow">
-              YOUR AI KNOWLEDGE SPACE
+              ✨ MULTI-AGENT DOCUMENT INTELLIGENCE
             </p>
 
             <h1>
-              Chat with your documents.
+              Ask your <span className="rose-gradient">documents</span> anything.
             </h1>
 
             <p className="subtitle">
-              Upload a PDF and get intelligent
-              answers from your document.
+              Multi-agent document intelligence — retrieval, reasoning and chart analysis, orchestrated for you.
             </p>
           </div>
 
@@ -380,6 +379,45 @@ function App() {
           </div>
 
         </header>
+
+        <div className="suggestion-cards-grid">
+          <button
+            className="suggestion-card"
+            onClick={() => {
+              setQuestion('Please provide a comprehensive summary of this document.')
+            }}
+          >
+            <span>📄 Summarize this document</span>
+            <span className="arrow">→</span>
+          </button>
+          <button
+            className="suggestion-card"
+            onClick={() => {
+              setQuestion('What are the key findings, metrics, and highlights?')
+            }}
+          >
+            <span>🔍 List the key findings</span>
+            <span className="arrow">→</span>
+          </button>
+          <button
+            className="suggestion-card"
+            onClick={() => {
+              setQuestion('Analyze the charts and visual data in this document.')
+            }}
+          >
+            <span>📊 Analyze the charts</span>
+            <span className="arrow">→</span>
+          </button>
+          <button
+            className="suggestion-card"
+            onClick={() => {
+              setQuestion('What are the primary risks and challenges mentioned?')
+            }}
+          >
+            <span>⚠️ What are the risks mentioned?</span>
+            <span className="arrow">→</span>
+          </button>
+        </div>
 
         <section
           className={`upload-card ${

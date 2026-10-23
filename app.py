@@ -28,14 +28,261 @@ default_backend_url = os.getenv("BACKEND_URL", "https://omnibrain-backend-fw8h.o
 # ==========================================
 
 st.set_page_config(
-    page_title="OmniBrain • Multi-Agent RAG",
+    page_title="OmniBrain • Document Intelligence",
     page_icon="🧠",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
 # ==========================================
-# SESSION STATE & HYDRATION (Fix 7)
+# LOVABLE BLUSH / ROSE THEME STYLING (CSS)
+# ==========================================
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* --- Root & Global Variables --- */
+:root {
+    --bg-main: #FFF5F7;
+    --bg-card: #FFFFFF;
+    --bg-sidebar: #FFF0F3;
+    --accent-pink: #F43F5E;
+    --accent-rose: #E11D48;
+    --accent-berry: #BE185D;
+    --accent-deep: #831843;
+    --border-soft: #FCE7F3;
+    --border-accent: #FBCFE8;
+    --text-primary: #1F1518;
+    --text-muted: #886F77;
+}
+
+/* Base App View Container & Background */
+.stApp {
+    background-color: #FFF5F7 !important;
+    background-image: radial-gradient(#F43F5E 0.55px, transparent 0.55px) !important;
+    background-size: 22px 22px !important;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    color: var(--text-primary) !important;
+}
+
+/* Sidebar styling */
+section[data-testid="stSidebar"] {
+    background-color: #FFF0F3 !important;
+    border-right: 1px solid #FCE7F3 !important;
+}
+section[data-testid="stSidebar"] hr {
+    border-color: #FCE7F3 !important;
+}
+
+/* Header & Top Bar */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+
+/* Hero Typography */
+.hero-container {
+    padding: 1.5rem 0 1.25rem 0;
+    max-width: 900px;
+}
+.eyebrow-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.85rem;
+    background: #FFE4E8;
+    border: 1px solid #FBCFE8;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #BE185D;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+}
+.hero-title {
+    font-size: 2.75rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #1F1518;
+    margin: 0.25rem 0 0.6rem 0;
+    letter-spacing: -0.03em;
+}
+.rose-gradient {
+    background: linear-gradient(135deg, #F43F5E 0%, #BE185D 50%, #9D174D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+.hero-subtitle {
+    font-size: 1.05rem;
+    color: #6E535B;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    font-weight: 450;
+}
+
+/* Upload Card Styling */
+.upload-card-wrapper {
+    background: #FFFFFF;
+    border: 1.5px dashed #FBCFE8;
+    border-radius: 20px;
+    padding: 1.75rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 4px 20px -2px rgba(244, 63, 94, 0.05);
+    transition: all 0.25s ease;
+    margin-bottom: 1.75rem;
+}
+.upload-card-wrapper:hover {
+    border-color: #F43F5E;
+    box-shadow: 0 8px 30px -4px rgba(244, 63, 94, 0.12);
+}
+.upload-icon-circle {
+    width: 48px;
+    height: 48px;
+    background: #FFF1F4;
+    border: 1px solid #FBCFE8;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    color: #BE185D;
+    margin-bottom: 0.75rem;
+}
+
+/* Suggestion Card Buttons */
+div[data-testid="column"] button[kind="secondary"] {
+    background: #FFFFFF !important;
+    border: 1px solid #FCE7F3 !important;
+    border-radius: 14px !important;
+    color: #831843 !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    padding: 0.85rem 1.15rem !important;
+    box-shadow: 0 2px 10px -2px rgba(244, 63, 94, 0.04) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    text-align: left !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    min-height: 54px !important;
+}
+div[data-testid="column"] button[kind="secondary"]:hover {
+    background: #FFF5F7 !important;
+    border-color: #F43F5E !important;
+    color: #BE185D !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px -3px rgba(244, 63, 94, 0.14) !important;
+}
+
+/* Primary Action Buttons */
+div.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #F43F5E 0%, #BE185D 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    padding: 0.65rem 1.4rem !important;
+    box-shadow: 0 4px 14px 0 rgba(244, 63, 94, 0.35) !important;
+    transition: all 0.2s ease !important;
+}
+div.stButton > button[kind="primary"]:hover {
+    box-shadow: 0 6px 20px 0 rgba(244, 63, 94, 0.5) !important;
+    transform: translateY(-1px) !important;
+    filter: brightness(1.04) !important;
+}
+
+/* Chat Input Styling */
+div[data-testid="stChatInput"] {
+    border-radius: 9999px !important;
+    border: 1.5px solid #FBCFE8 !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 8px 30px -4px rgba(244, 63, 94, 0.08) !important;
+    padding: 0.25rem 0.5rem !important;
+}
+div[data-testid="stChatInput"]:focus-within {
+    border-color: #BE185D !important;
+    box-shadow: 0 8px 30px -2px rgba(244, 63, 94, 0.18) !important;
+}
+
+/* Chat Message Bubbles */
+div[data-testid="stChatMessage"] {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0.75rem 0 !important;
+}
+div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
+    background: linear-gradient(135deg, #F43F5E 0%, #BE185D 100%) !important;
+    color: #FFFFFF !important;
+    border-radius: 20px 20px 4px 20px !important;
+    padding: 0.85rem 1.25rem !important;
+    box-shadow: 0 4px 16px -2px rgba(244, 63, 94, 0.25) !important;
+    font-weight: 500 !important;
+}
+div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] p {
+    color: #FFFFFF !important;
+}
+div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stChatMessageContent"] {
+    background: #FFFFFF !important;
+    border: 1px solid #FCE7F3 !important;
+    border-radius: 20px 20px 20px 4px !important;
+    padding: 1.15rem 1.35rem !important;
+    box-shadow: 0 4px 20px -2px rgba(244, 63, 94, 0.05) !important;
+    color: #1F1518 !important;
+}
+
+/* Expanders & Accordions */
+div[data-testid="stExpander"] {
+    border: 1px solid #FCE7F3 !important;
+    border-radius: 12px !important;
+    background-color: #FFFFFF !important;
+    box-shadow: 0 2px 8px -2px rgba(244, 63, 94, 0.04) !important;
+    margin-bottom: 0.5rem !important;
+}
+div[data-testid="stExpander"] summary {
+    font-weight: 600 !important;
+    color: #831843 !important;
+}
+
+/* Status Pill Containers */
+div[data-testid="stStatusWidget"] {
+    border: 1px solid #FBCFE8 !important;
+    border-radius: 14px !important;
+    background-color: #FFF8FA !important;
+}
+
+/* Active Artifact Badge */
+.active-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.9rem;
+    background: #FFF1F4;
+    border: 1px solid #FBCFE8;
+    border-radius: 12px;
+    color: #9D174D;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 1rem 0;
+}
+
+/* Clean Footer */
+.footer-text {
+    text-align: center;
+    color: #9C7782;
+    font-size: 0.82rem;
+    margin-top: 2rem;
+    letter-spacing: 0.02em;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# SESSION STATE & HYDRATION
 # ==========================================
 
 if "backend_url" not in st.session_state:
@@ -85,24 +332,25 @@ if "chat_history" not in st.session_state or not st.session_state.chat_history:
 
 
 # ==========================================
-# HEADER
-# ==========================================
-
-st.title("🧠 OmniBrain")
-st.caption("Multi-Agent Document Intelligence • LangGraph Supervisor Orchestration • Multi-Modal RAG")
-
-
-# ==========================================
 # SIDEBAR
 # ==========================================
 
 with st.sidebar:
-    st.header("⚙️ System Connectivity")
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem;">
+        <div style="width: 38px; height: 38px; background: linear-gradient(135deg, #F43F5E, #BE185D); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);">🧠</div>
+        <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1F1518;">OmniBrain</h3>
+            <span style="font-size: 0.75rem; color: #886F77; font-weight: 500;">Multi-Agent Intelligence</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
+    st.markdown("### ⚙️ Gateway Connectivity")
     backend_input = st.text_input(
-        "FastAPI Gateway URL",
+        "Backend Gateway URL",
         value=st.session_state.backend_url,
-        help="Backend API address (e.g., https://omnibrain-backend-fw8h.onrender.com or http://127.0.0.1:8000)"
+        help="FastAPI Gateway address (e.g. https://omnibrain-backend-fw8h.onrender.com or http://127.0.0.1:8000)"
     )
     if backend_input and backend_input.rstrip("/") != st.session_state.backend_url:
         st.session_state.backend_url = backend_input.rstrip("/")
@@ -114,7 +362,7 @@ with st.sidebar:
     try:
         health_resp = requests.get(f"{BACKEND_URL}/health", timeout=3.0)
         if health_resp.status_code == 200:
-            st.success("🟢 Connected to Backend", icon="✅")
+            st.success("🟢 Connected to OmniBrain API", icon="✅")
         else:
             st.warning(f"🟡 Backend returned HTTP {health_resp.status_code}")
     except Exception:
@@ -122,20 +370,22 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("📄 Active Artifact")
+    st.markdown("### 📄 Active Artifact")
     if st.session_state.uploaded_filename:
-        st.success(f"✅ Active: **{st.session_state.uploaded_filename}**")
-        if st.session_state.uploaded_filetype:
-            st.caption(f"Type: `{st.session_state.uploaded_filetype.upper()}`")
+        st.markdown(f"""
+        <div class="active-pill">
+            <span>📌</span>
+            <span><b>{st.session_state.uploaded_filename}</b> ({st.session_state.get('uploaded_filetype', 'doc').upper()})</span>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.info("Upload a PDF document, CSV dataset, or visual chart to begin.")
+        st.caption("No document currently active. Upload a PDF, CSV, or chart to begin.")
 
     st.divider()
 
-    st.caption(f"**Session ID:** `{st.session_state.session_id[:8]}...`")
+    st.caption(f"**Session:** `{st.session_state.session_id[:8]}...`")
 
     if st.button("🗑️ Clear Chat History", use_container_width=True):
-        # Clear backend chat history for this session as well
         try:
             requests.delete(
                 f"{BACKEND_URL}/api/v1/chat/history/{st.session_state.session_id}",
@@ -151,14 +401,26 @@ with st.sidebar:
 
 
 # ==========================================
-# MULTI-FILE UPLOAD WIDGET (PDF, CSV, IMAGES)
+# HERO SECTION (LOVABLE LIGHT PINK THEME)
 # ==========================================
 
-st.subheader("📁 Upload Document, Dataset, or Visual Chart")
+st.markdown("""
+<div class="hero-container">
+    <div class="eyebrow-pill">✨ Multi-Agent Document Intelligence</div>
+    <div class="hero-title">Ask your <span class="rose-gradient">documents</span> anything.</div>
+    <div class="hero-subtitle">Multi-agent document intelligence — retrieval, reasoning and chart analysis, orchestrated for you.</div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# MULTI-FILE UPLOAD ZONE (PDF, CSV, CHARTS)
+# ==========================================
 
 uploaded_file = st.file_uploader(
-    "Choose a file (PDF Document, CSV Financial Dataset, or Chart Image)",
-    type=["pdf", "csv", "png", "jpg", "jpeg", "webp"]
+    "Upload Document (PDF, CSV, or Image)",
+    type=["pdf", "csv", "png", "jpg", "jpeg", "webp"],
+    help="Supports PDF research documents, CSV financial tables, and multimodal charts/diagrams."
 )
 
 if uploaded_file is not None:
@@ -167,86 +429,87 @@ if uploaded_file is not None:
     # 1. PDF Document Handling
     if file_ext == ".pdf":
         st.caption(f"📄 **PDF Document Selected:** `{uploaded_file.name}` ({len(uploaded_file.getvalue()) / 1024:.1f} KB)")
-    if st.button("Upload & Index Document", type="primary"):
-        with st.spinner("📤 Uploading document to OmniBrain API..."):
-            try:
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file.getvalue(),
-                        "application/pdf"
-                    )
-                }
-
-                response = requests.post(
-                    f"{BACKEND_URL}/api/v1/upload",
-                    files=files,
-                    timeout=120
-                )
-
-                if response.status_code in [200, 201]:
-                    data = response.json()
-                    job_id = data.get("job_id")
-                    st.session_state.uploaded_filename = uploaded_file.name
-                    st.info(f"📤 Uploaded successfully. Job ID: `{job_id}`.")
-
-                    # Async Polling loop
-                    progress_bar = st.progress(10, text="Job queued for processing...")
-                    status_placeholder = st.empty()
-                    max_poll_seconds = 60
-                    poll_interval = 1.5
-                    start_time = time.time()
-                    job_completed = False
-
-                    while time.time() - start_time < max_poll_seconds:
-                        time.sleep(poll_interval)
-                        elapsed = int(time.time() - start_time)
-                        try:
-                            status_resp = requests.get(
-                                f"{BACKEND_URL}/api/v1/ingest/status/{job_id}",
-                                timeout=5.0
-                            )
-                            if status_resp.status_code == 200:
-                                status_info = status_resp.json()
-                                job_status = status_info.get("status", "QUEUED")
-                                msg = status_info.get("message", "")
-
-                                if job_status == "QUEUED":
-                                    progress_bar.progress(20, text=f"⏳ {msg} ({elapsed}s)")
-                                elif job_status == "PROCESSING":
-                                    progress_bar.progress(60, text=f"⚙️ {msg} ({elapsed}s)")
-                                elif job_status == "COMPLETED":
-                                    progress_bar.progress(100, text="✅ Document successfully ingested and indexed into vector DB!")
-                                    status_placeholder.success(f"🎉 **{uploaded_file.name}** is fully processed and ready for querying!")
-                                    job_completed = True
-                                    break
-                                elif job_status == "FAILED":
-                                    err_detail = status_info.get("error_detail") or msg
-                                    progress_bar.progress(100, text="❌ Ingestion failed")
-                                    status_placeholder.error(f"❌ Ingestion failed: {err_detail}")
-                                    job_completed = True
-                                    break
-                        except Exception as poll_err:
-                            status_placeholder.warning(f"Polling connection warning: {poll_err}")
-
-                    if not job_completed:
-                        progress_bar.progress(90, text="⚠️ Processing taking longer than expected...")
-                        status_placeholder.warning(
-                            f"Document processing continues in the background. Job ID: `{job_id}`. "
-                            "You can proceed with queries once complete."
+        if st.button("🚀 Upload & Ingest PDF into Vector DB", type="primary", use_container_width=True):
+            with st.spinner("📤 Uploading document to OmniBrain API..."):
+                try:
+                    files = {
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            "application/pdf"
                         )
-                else:
-                    st.error(f"❌ Upload failed with status code {response.status_code}: {response.text}")
+                    }
 
-            except requests.exceptions.ConnectionError:
-                st.error("❌ Cannot connect to FastAPI backend at " + BACKEND_URL)
-            except Exception as e:
-                st.error(f"❌ Error during upload: {e}")
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/v1/upload",
+                        files=files,
+                        timeout=120
+                    )
+
+                    if response.status_code in [200, 201]:
+                        data = response.json()
+                        job_id = data.get("job_id")
+                        st.session_state.uploaded_filename = uploaded_file.name
+                        st.session_state.uploaded_filetype = "pdf"
+                        st.info(f"📤 Uploaded successfully. Job ID: `{job_id}`.")
+
+                        # Async Polling loop
+                        progress_bar = st.progress(10, text="Job queued for processing...")
+                        status_placeholder = st.empty()
+                        max_poll_seconds = 60
+                        poll_interval = 1.5
+                        start_time = time.time()
+                        job_completed = False
+
+                        while time.time() - start_time < max_poll_seconds:
+                            time.sleep(poll_interval)
+                            elapsed = int(time.time() - start_time)
+                            try:
+                                status_resp = requests.get(
+                                    f"{BACKEND_URL}/api/v1/ingest/status/{job_id}",
+                                    timeout=5.0
+                                )
+                                if status_resp.status_code == 200:
+                                    status_info = status_resp.json()
+                                    job_status = status_info.get("status", "QUEUED")
+                                    msg = status_info.get("message", "")
+
+                                    if job_status == "QUEUED":
+                                        progress_bar.progress(20, text=f"⏳ {msg} ({elapsed}s)")
+                                    elif job_status == "PROCESSING":
+                                        progress_bar.progress(60, text=f"⚙️ {msg} ({elapsed}s)")
+                                    elif job_status == "COMPLETED":
+                                        progress_bar.progress(100, text="✅ Document successfully ingested and indexed into vector DB!")
+                                        status_placeholder.success(f"🎉 **{uploaded_file.name}** is fully processed and ready for querying!")
+                                        job_completed = True
+                                        break
+                                    elif job_status == "FAILED":
+                                        err_detail = status_info.get("error_detail") or msg
+                                        progress_bar.progress(100, text="❌ Ingestion failed")
+                                        status_placeholder.error(f"❌ Ingestion failed: {err_detail}")
+                                        job_completed = True
+                                        break
+                            except Exception as poll_err:
+                                status_placeholder.warning(f"Polling connection warning: {poll_err}")
+
+                        if not job_completed:
+                            progress_bar.progress(90, text="⚠️ Processing taking longer than expected...")
+                            status_placeholder.warning(
+                                f"Document processing continues in the background. Job ID: `{job_id}`. "
+                                "You can proceed with queries once complete."
+                            )
+                    else:
+                        st.error(f"❌ Upload failed with status code {response.status_code}: {response.text}")
+
+                except requests.exceptions.ConnectionError:
+                    st.error("❌ Cannot connect to FastAPI backend at " + BACKEND_URL)
+                except Exception as e:
+                    st.error(f"❌ Error during upload: {e}")
 
     # 2. CSV Financial Dataset Handling
     elif file_ext == ".csv":
         st.caption(f"📊 **CSV Financial Dataset Selected:** `{uploaded_file.name}` ({len(uploaded_file.getvalue()) / 1024:.1f} KB)")
-        if st.button("📊 Upload & Ingest CSV into SQL Database", type="primary"):
+        if st.button("📊 Upload & Ingest CSV into SQL Database", type="primary", use_container_width=True):
             with st.spinner("📥 Loading structured historical data into SQLite database..."):
                 try:
                     files = {
@@ -283,7 +546,7 @@ if uploaded_file is not None:
     elif file_ext in [".png", ".jpg", ".jpeg", ".webp"]:
         st.caption(f"🖼️ **Visual Artifact Selected:** `{uploaded_file.name}`")
         st.image(uploaded_file, caption=f"Preview: {uploaded_file.name}", width=450)
-        if st.button("👁️ Upload & Register Image for Vision Agent", type="primary"):
+        if st.button("👁️ Upload & Register Image for Vision Agent", type="primary", use_container_width=True):
             with st.spinner("📤 Registering visual artifact for VisionAgent multimodal analysis..."):
                 try:
                     mime = "image/png" if file_ext == ".png" else "image/jpeg"
@@ -312,44 +575,52 @@ if uploaded_file is not None:
 
 
 # ==========================================
-# CURRENT DOCUMENT STATUS BANNER & QUICK DEMO PROMPTS
+# 4 SUGGESTION CARDS (2x2 GRID AS IN DESIGN)
 # ==========================================
 
-if st.session_state.uploaded_filename:
-    st.info(f"📌 Context Filter: **{st.session_state.uploaded_filename}** ({st.session_state.get('uploaded_filetype', 'file').upper()})")
+st.markdown("<div style='height: 0.5rem;'></div>", unsafe_allow_html=True)
+sugg_col1, sugg_col2 = st.columns(2)
 
-# Interactive Quick Prompts for Demonstration
-st.caption("💡 **Quick Demo Prompts (Click to Run):**")
-prompt_cols = st.columns(3)
-
-with prompt_cols[0]:
-    if st.button("📄 Total FY2025 Revenue", use_container_width=True):
-        st.session_state.pending_query = "What was Axelero Demo Corp's total revenue in fiscal year 2025?"
+with sugg_col1:
+    if st.button("📄 Summarize this document →", use_container_width=True):
+        st.session_state.pending_query = "Please provide a comprehensive summary of this document."
         st.rerun()
 
-with prompt_cols[1]:
-    if st.button("📊 Compare Q1 2025 vs Q1 2021", use_container_width=True):
-        st.session_state.pending_query = "Compare Q1 2025 revenue to Q1 2021"
-        st.rerun()
-
-with prompt_cols[2]:
-    if st.button("👁️ Highest Quarterly Revenue Chart", use_container_width=True):
+    if st.button("📊 Analyze the charts →", use_container_width=True):
         st.session_state.pending_query = "What was the highest quarterly revenue shown in the chart?"
         st.rerun()
 
-st.divider()
+with sugg_col2:
+    if st.button("🔍 List the key findings →", use_container_width=True):
+        st.session_state.pending_query = "What are the key findings, metrics, and highlights?"
+        st.rerun()
+
+    if st.button("⚠️ What are the risks mentioned? →", use_container_width=True):
+        st.session_state.pending_query = "What are the primary risks and challenges mentioned?"
+        st.rerun()
+
+# Quick Demo Pills Accordion
+with st.expander("⚡ Run Instant Verified Demo Queries", expanded=False):
+    demo_cols = st.columns(3)
+    with demo_cols[0]:
+        if st.button("Total FY2025 Revenue", use_container_width=True):
+            st.session_state.pending_query = "What was Axelero Demo Corp's total revenue in fiscal year 2025?"
+            st.rerun()
+    with demo_cols[1]:
+        if st.button("Compare Q1 2025 vs Q1 2021", use_container_width=True):
+            st.session_state.pending_query = "Compare Q1 2025 revenue to Q1 2021"
+            st.rerun()
+    with demo_cols[2]:
+        if st.button("Operating Margin Improvement", use_container_width=True):
+            st.session_state.pending_query = "How much did operating margin improve by?"
+            st.rerun()
+
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
 
 
 # ==========================================
-# CHAT INTERFACE
+# CHAT INTERFACE & CONVERSATION HISTORY
 # ==========================================
-
-st.subheader("💬 Chat with OmniBrain Multi-Agent Assistant")
-
-
-# ------------------------------------------
-# Render Past Messages
-# ------------------------------------------
 
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
@@ -357,7 +628,7 @@ for message in st.session_state.chat_history:
             # Display past agent steps
             if message.get("execution_steps"):
                 routed = message.get("routed_agent", "Agent")
-                with st.expander(f"🤖 Handled by {routed} (View Decision Trace)", expanded=False):
+                with st.expander(f"🤖 Handled by {routed} (Decision Trace)", expanded=False):
                     for step in message["execution_steps"]:
                         agent_name = step.get("agent_name", "")
                         details = step.get("details") or {}
@@ -412,7 +683,7 @@ for message in st.session_state.chat_history:
 # Chat Input & Real-Time Agent Execution
 # ------------------------------------------
 
-question = st.chat_input("Ask a question about your uploaded document or request chart analysis...")
+question = st.chat_input("Ask a question about your documents, financial tables, or charts...")
 
 active_query = question
 if not active_query and st.session_state.get("pending_query"):
@@ -540,5 +811,8 @@ if active_query:
 # FOOTER
 # ==========================================
 
-st.divider()
-st.caption("OmniBrain • Multi-Agent RAG • LangGraph Supervisor • Qdrant Vector DB")
+st.markdown("""
+<div class="footer-text">
+    OmniBrain · Multi-Agent RAG · LangGraph · Qdrant
+</div>
+""", unsafe_allow_html=True)
