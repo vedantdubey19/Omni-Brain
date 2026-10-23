@@ -33,7 +33,7 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 
 | **1. React Interactive Dashboard** | **2. FastAPI OpenAPI / Swagger Gateway** |
 |:---:|:---:|
-| ![React UI](docs/screenshots/01_streamlit_dashboard.png) | ![FastAPI Docs](docs/screenshots/02_fastapi_swagger_docs.png) |
+| ![React UI](docs/screenshots/01_react_dashboard.png) | ![FastAPI Docs](docs/screenshots/02_fastapi_swagger_docs.png) |
 | *Multi-Agent conversational interface with document ingestion and session routing* | *REST API gateway with LangGraph orchestration endpoints* |
 
 | **3. Extracted Multimodal Visual Artifact** |
@@ -120,8 +120,8 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 ## Project Status
 
 - ✅ **Phase 0: Repo Hygiene & CI** — Merged upstream branches (`main` and `dev` in sync), verified clean CI pass.
-- ✅ **Phase 1: Text-to-SQL Agent** — Structured SQLite analytical database, read-only SQL validation, LangGraph supervisor node, and Streamlit execution trace rendering.
-- ✅ **Phase 2: Vision Agent** — GPT-4o multimodal image analysis, Pillow inspection fallback, automatic image linkage during PDF ingestion, and Streamlit image display.
+- ✅ **Phase 1: Text-to-SQL Agent** — Structured SQLite analytical database, read-only SQL validation, LangGraph supervisor node, and React execution trace rendering.
+- ✅ **Phase 2: Vision Agent** — GPT-4o multimodal image analysis, Pillow inspection fallback, automatic image linkage during PDF ingestion, and React image display.
 - ✅ **Phase 3: Self-RAG Correction Loop** — Bounded multi-step retry loop (`max_retries=2`), adaptive cross-domain query rewriter, `retry_count` and `retry_history` tracking across API and UI.
 - ✅ **Phase 4: Enterprise Guardrails** — High-precision regex first-pass filtering, secondary LLM adversarial intent check, and output credential/token redaction.
 - ✅ **Phase 5: Cloud Deployment** — Production blueprints for Render (`render.yaml`) and Fly.io (`fly.toml`), Qdrant Cloud managed cluster integration, and comprehensive environment templates.

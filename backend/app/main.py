@@ -481,7 +481,7 @@ async def get_ingestion_status(job_id: str):
 @app.get("/api/v1/search", status_code=status.HTTP_200_OK)
 async def search_documents(query: str, top_k: int = 3, document_id: Optional[str] = None):
     """
-    Search endpoint compatible with Streamlit frontend.
+    Search endpoint compatible with web frontend clients.
     """
     clean_query = query.strip()
     if not clean_query:

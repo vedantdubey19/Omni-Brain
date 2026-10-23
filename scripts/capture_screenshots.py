@@ -80,11 +80,11 @@ async def capture_cdp_screenshot(url: str, output_path: str, wait_seconds: int =
 
 
 async def main():
-    # 1. Streamlit Dashboard
-    print("Capturing 01_streamlit_dashboard.png...")
+    # 1. React Dashboard
+    print("Capturing 01_react_dashboard.png...")
     await capture_cdp_screenshot(
         "http://localhost:8501",
-        os.path.join(SCREENSHOTS_DIR, "01_streamlit_dashboard.png"),
+        os.path.join(SCREENSHOTS_DIR, "01_react_dashboard.png"),
         wait_seconds=6
     )
 
