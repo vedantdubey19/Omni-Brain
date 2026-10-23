@@ -45,10 +45,15 @@ jobs:
         run: |
           python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
-      - name: Validate Backend & Frontend Import Integrity
+      - name: Validate Backend Import Integrity
         run: |
           python -c "import backend.app.main; print('Backend modules verified successfully')"
-          python -c "import frontend.app; print('Frontend module verified successfully')"
+
+      - name: Validate React Frontend Build
+        run: |
+          cd frontend
+          npm install
+          npm run build
 
   docker-build-check:
     runs-on: ubuntu-latest

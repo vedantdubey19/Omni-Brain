@@ -38,13 +38,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: omnibrain_frontend
-    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
-    env_file:
-      - .env
     ports:
       - "8501:8501"
     environment:
-      - BACKEND_URL=http://backend:8000
+      - PORT=8501
+      - VITE_BACKEND_URL=http://localhost:8000
     depends_on:
       - backend
     networks:

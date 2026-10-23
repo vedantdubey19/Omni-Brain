@@ -37,11 +37,6 @@ node_modules/
 dist/
 .oxlintrc.json
 
-# Streamlit
-.streamlit/*
-!.streamlit/config.toml
-frontend/.streamlit/*
-!frontend/.streamlit/config.toml
 
 # OS / IDE
 .DS_Store

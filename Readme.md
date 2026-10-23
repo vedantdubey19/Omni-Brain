@@ -4,7 +4,7 @@
 
 [![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-1c3d5a)](https://github.com/langchain-ai/langgraph)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Frontend-Streamlit-ff4b4b)](https://streamlit.io/)
+[![React](https://img.shields.io/badge/Frontend-React%2019%20%2B%20Vite-61dafb)](https://react.dev/)
 [![Qdrant](https://img.shields.io/badge/Vector%20DB-Qdrant-dc244c)](https://qdrant.tech/)
 [![Observability](https://img.shields.io/badge/Observability-Langfuse-e05d44)](https://langfuse.com)
 [![Guardrails](https://img.shields.io/badge/Guardrails-Custom%20Hybrid%20Engine-4c1)]()
@@ -31,9 +31,9 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 
 ## Application & Architecture Gallery
 
-| **1. Streamlit Interactive Dashboard** | **2. FastAPI OpenAPI / Swagger Gateway** |
+| **1. React Interactive Dashboard** | **2. FastAPI OpenAPI / Swagger Gateway** |
 |:---:|:---:|
-| ![Streamlit UI](docs/screenshots/01_streamlit_dashboard.png) | ![FastAPI Docs](docs/screenshots/02_fastapi_swagger_docs.png) |
+| ![React UI](docs/screenshots/01_streamlit_dashboard.png) | ![FastAPI Docs](docs/screenshots/02_fastapi_swagger_docs.png) |
 | *Multi-Agent conversational interface with document ingestion and session routing* | *REST API gateway with LangGraph orchestration endpoints* |
 
 | **3. Extracted Multimodal Visual Artifact** |
@@ -47,7 +47,7 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 
 ```
                          ┌───────────────────────────┐
-                         │   User Query (Streamlit)   │
+                         │   User Query (React UI)   │
                          └─────────────┬───────────────┘
                                        │
                                ┌───────▼───────────┐
@@ -106,7 +106,7 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 
 - **Orchestration:** LangGraph, LangChain
 - **Backend:** FastAPI, Uvicorn, Pydantic v2
-- **Frontend:** Streamlit (thought-process timeline, multimodal image rendering, interactive citations)
+- **Frontend:** React 19 + Vite SPA (Lovable blush/rose theme, multi-file ingestion, dynamic agent routing badges, citation inspection)
 - **Vector Store:** Qdrant (Docker container and Qdrant Cloud managed)
 - **Embeddings:** `sentence-transformers/all-MiniLM-L6-v2` (pre-cached, offline-safe)
 - **Vision-Language Model:** OpenAI GPT-4o Vision (with offline Pillow inspection fallback)
@@ -150,13 +150,17 @@ OmniBrain/
 │   │   │   └── vision_service.py    # GPT-4o multimodal chart analysis
 │   │   └── main.py           # FastAPI Gateway & REST routing endpoints
 │   └── __init__.py
-├── frontend/                 # Frontend Web Interface
-│   ├── .streamlit/           # Custom blush/rose theme configuration
-│   │   └── config.toml
-│   ├── app.py                # Streamlit production dashboard application
-│   ├── Dockerfile            # Container deployment for frontend
-│   ├── requirements.txt      # Frontend Python dependencies
-│   └── react_ui/             # Optional standalone React + Vite client
+├── frontend/                 # Frontend Web Application (React + Vite SPA)
+│   ├── src/                  # React components & Lovable theme styles
+│   │   ├── App.jsx           # Main conversational & multi-modal dashboard
+│   │   ├── App.css           # Custom blush/rose responsive styling
+│   │   ├── main.jsx          # React DOM entrypoint
+│   │   └── index.css         # Design tokens & CSS reset
+│   ├── public/               # Static assets & icons
+│   ├── index.html            # HTML template
+│   ├── vite.config.js        # Vite bundler & API proxy configuration
+│   ├── package.json          # Node dependencies & build scripts
+│   └── Dockerfile            # Multi-stage production container
 ├── pdf_parser_module/        # PyMuPDF Document Extraction Pipeline
 │   ├── app/
 │   │   ├── core/             # Configuration & logging
@@ -174,7 +178,6 @@ OmniBrain/
 │   └── .gitkeep
 ├── .env.example              # Environment variables template
 ├── .gitignore                # Production git ignore configuration
-├── app.py                    # Root entrypoint redirecting to frontend/app.py
 ├── docker-compose.yml        # Multi-service local Docker orchestration
 ├── Dockerfile                # Production Backend Docker image
 ├── render.yaml               # Infrastructure-as-code for Render deployment
@@ -197,19 +200,16 @@ cp .env.example .env
 ### 2. Native Setup
 
 ```bash
-# Create and activate virtual environment
+# Start Backend API Gateway (FastAPI)
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Start Backend API Gateway (FastAPI)
 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
-# In another terminal: Start Frontend Dashboard (Streamlit)
-source .venv/bin/activate
-streamlit run frontend/app.py --server.port 8501
+# In another terminal: Start Frontend Dashboard (React + Vite)
+cd frontend
+npm install
+npm run dev
 ```
 
 ### 3. Containerized Setup (Docker Compose)

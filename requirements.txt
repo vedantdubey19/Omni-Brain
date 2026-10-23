@@ -1,4 +1,4 @@
-# OmniBrain Core Dependencies
+# OmniBrain Backend Core Dependencies
 
 # Backend (FastAPI & Async)
 fastapi>=0.110.0
@@ -23,10 +23,6 @@ pdfplumber>=0.11.0
 Pillow>=10.2.0
 pytesseract>=0.3.10
 loguru>=0.7.2
-
-# Frontend (Streamlit)
-streamlit>=1.32.0
-requests>=2.31.0
 
 # Observability & Tracing
 langfuse>=2.0.0
