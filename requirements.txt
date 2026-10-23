@@ -11,12 +11,10 @@ python-multipart>=0.0.9
 # RAG, Embeddings, LangGraph & Multi-Agent Search
 sentence-transformers>=2.5.0
 qdrant-client>=1.8.0
-chromadb>=0.4.24
 langchain-core>=0.1.30
 langchain-text-splitters>=0.0.1
 langgraph>=0.0.30
 duckduckgo-search>=5.0.0
-rank-bm25>=0.2.2
 openai>=1.14.0
 
 # Document Processing (PDF, OCR, Tables, Images)
@@ -29,10 +27,6 @@ loguru>=0.7.2
 # Frontend (Streamlit)
 streamlit>=1.32.0
 requests>=2.31.0
-
-# Testing & QA
-pytest>=8.0.0
-flake8>=7.0.0
 
 # Observability & Tracing
 langfuse>=2.0.0

@@ -129,13 +129,68 @@ A quantitative analyst uploads a **corporate financial PDF**. OmniBrain:
 
 ---
 
+## Repository Structure
+
+```
+OmniBrain/
+├── backend/                  # Backend FastAPI Service
+│   ├── app/
+│   │   ├── agents/           # LangGraph Agent Orchestrators
+│   │   │   └── supervisor.py # Intent router & multi-agent execution graph
+│   │   ├── services/         # Modular production service layer
+│   │   │   ├── agent_service.py     # State management & agent invocation
+│   │   │   ├── citation_service.py  # Exact page snippets & visual boundaries
+│   │   │   ├── guardrails_service.py# Injection detection & output redaction
+│   │   │   ├── job_store.py         # Persistent SQLite job & session history
+│   │   │   ├── llm_client.py        # OpenAI / Gemini API fallback resolution
+│   │   │   ├── llm_service.py       # Synthesis & Self-RAG query rewriter
+│   │   │   ├── retriever_service.py # Qdrant dense vector store singleton
+│   │   │   ├── sql_service.py       # Safe read-only SQLite Text-to-SQL
+│   │   │   ├── tracing_service.py   # Langfuse observability decorator
+│   │   │   └── vision_service.py    # GPT-4o multimodal chart analysis
+│   │   └── main.py           # FastAPI Gateway & REST routing endpoints
+│   └── __init__.py
+├── frontend/                 # Frontend Web Interface
+│   ├── .streamlit/           # Custom blush/rose theme configuration
+│   │   └── config.toml
+│   ├── app.py                # Streamlit production dashboard application
+│   ├── Dockerfile            # Container deployment for frontend
+│   ├── requirements.txt      # Frontend Python dependencies
+│   └── react_ui/             # Optional standalone React + Vite client
+├── pdf_parser_module/        # PyMuPDF Document Extraction Pipeline
+│   ├── app/
+│   │   ├── core/             # Configuration & logging
+│   │   ├── models/           # Pydantic schema contracts
+│   │   ├── services/         # OCR, table extraction, and image parsing
+│   │   └── utils/            # Bounding box & PDF helper utilities
+│   ├── requirements.txt      # Parser dependencies
+│   └── README.md
+├── docs/                     # Technical documentation & architecture assets
+│   ├── screenshots/          # Production UI & API gallery images
+│   ├── api_reference.md      # Comprehensive endpoint documentation
+│   └── setup.md              # Detailed local & cloud deployment guide
+├── data/                     # Local file storage (runtime generated)
+│   ├── raw/                  # Uploaded documents
+│   └── .gitkeep
+├── .env.example              # Environment variables template
+├── .gitignore                # Production git ignore configuration
+├── app.py                    # Root entrypoint redirecting to frontend/app.py
+├── docker-compose.yml        # Multi-service local Docker orchestration
+├── Dockerfile                # Production Backend Docker image
+├── render.yaml               # Infrastructure-as-code for Render deployment
+├── requirements.txt          # Production backend dependencies
+└── Readme.md                 # Project overview and reference guide
+```
+
+---
+
 ## Getting Started
 
 ### 1. Clone & Configure Environment
 
 ```bash
-git clone https://github.com/vedantdubey19/Axelero-Project-1.git
-cd Axelero-Project-1
+git clone https://github.com/vedantdubey19/Omni-Brain.git
+cd Omni-Brain
 cp .env.example .env
 ```
 
@@ -154,7 +209,7 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 # In another terminal: Start Frontend Dashboard (Streamlit)
 source .venv/bin/activate
-streamlit run app.py --server.port 8501
+streamlit run frontend/app.py --server.port 8501
 ```
 
 ### 3. Containerized Setup (Docker Compose)
@@ -169,27 +224,11 @@ docker compose up --build
 
 ---
 
-## Running Tests
+## Live Cloud Production
 
-```bash
-# Run all tests across the entire repository
-pytest -v
-
-# Run supervisor routing and agent execution tests
-pytest tests/test_supervisor_routing.py -v
-
-# Run Self-RAG and citation tests
-pytest tests/test_citations_and_self_rag.py -v
-
-# Run guardrails tests
-pytest tests/test_guardrails.py -v
-
-# Run observability tracing tests
-pytest tests/test_tracing.py -v
-
-# Run PDF ingestion unit tests
-pytest pdf_parser_module/tests/ -v
-```
+- **Backend API Gateway:** [https://omnibrain-backend-fw8h.onrender.com](https://omnibrain-backend-fw8h.onrender.com)
+- **Frontend Web Application:** [https://omnibrain-frontend-6och.onrender.com](https://omnibrain-frontend-6och.onrender.com)
+- **OpenAPI Interactive Documentation:** [https://omnibrain-backend-fw8h.onrender.com/docs](https://omnibrain-backend-fw8h.onrender.com/docs)
 
 ---
 
