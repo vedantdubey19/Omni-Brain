@@ -10,6 +10,32 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 # Global thread-safe reentrant lock and singleton for SentenceTransformer
 _EMBEDDER_LOCK = threading.RLock()
 _GLOBAL_EMBEDDER = None
+_GLOBAL_QDRANT_CLIENT = None
+
+
+def get_shared_qdrant_client(url=None, api_key=None, host=None, port=None) -> QdrantClient:
+    """Returns a shared process-wide QdrantClient singleton to prevent split-brain in-memory databases."""
+    global _GLOBAL_QDRANT_CLIENT
+    if _GLOBAL_QDRANT_CLIENT is not None:
+        return _GLOBAL_QDRANT_CLIENT
+
+    qdrant_url = url or os.getenv("QDRANT_URL")
+    qdrant_api_key = api_key or os.getenv("QDRANT_API_KEY")
+    qdrant_host = host or os.getenv("QDRANT_HOST", "localhost")
+    qdrant_port = port or int(os.getenv("QDRANT_PORT", "6333"))
+
+    try:
+        if qdrant_url:
+            client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=5.0)
+        else:
+            client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=2.0)
+        client.get_collections()
+        _GLOBAL_QDRANT_CLIENT = client
+    except Exception:
+        # Fallback to shared in-memory database across all services
+        _GLOBAL_QDRANT_CLIENT = QdrantClient(location=":memory:")
+
+    return _GLOBAL_QDRANT_CLIENT
 
 
 class DummyFallbackEmbedder:
@@ -110,19 +136,8 @@ class RetrieverService:
         qdrant_host = host or os.getenv("QDRANT_HOST", "localhost")
         qdrant_port = port or int(os.getenv("QDRANT_PORT", "6333"))
 
-        # Fallback priority: Qdrant Cloud (URL/API Key) -> Local Qdrant -> In-Memory
-        try:
-            if qdrant_url:
-                self.client = QdrantClient(
-                    url=qdrant_url,
-                    api_key=qdrant_api_key,
-                    timeout=5.0
-                )
-            else:
-                self.client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=2.0)
-            self.client.get_collections()
-        except Exception:
-            self.client = QdrantClient(location=":memory:")
+        # Fallback priority: Qdrant Cloud (URL/API Key) -> Local Qdrant -> In-Memory (Singleton)
+        self.client = get_shared_qdrant_client(url=qdrant_url, api_key=qdrant_api_key, host=qdrant_host, port=qdrant_port)
 
         # Optional instance-level embedder override, defaults to global singleton
         self._embedder = None
