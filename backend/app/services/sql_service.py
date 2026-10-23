@@ -76,12 +76,14 @@ class SQLQueryService:
     def _get_connection(self, read_only: bool = False) -> sqlite3.Connection:
         if self.db_path == ":memory:":
             if not hasattr(self, "_memory_conn") or self._memory_conn is None:
-                self._memory_conn = sqlite3.connect(":memory:", check_same_thread=False)
+                self._memory_conn = sqlite3.connect(":memory:", check_same_thread=False, timeout=10.0)
             return self._memory_conn
-        if read_only and os.path.exists(self.db_path):
-            uri_path = f"file:{os.path.abspath(self.db_path)}?mode=ro"
-            return sqlite3.connect(uri_path, uri=True)
-        return sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000;")
+        except Exception:
+            pass
+        return conn
 
     def _close_connection(self, conn: sqlite3.Connection):
         if self.db_path != ":memory:":
@@ -94,6 +96,10 @@ class SQLQueryService:
         """Initializes database schema without hardcoded dummy seed data."""
         conn = self._get_connection(read_only=False)
         try:
+            try:
+                conn.execute("PRAGMA journal_mode=WAL;")
+            except Exception:
+                pass
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS company_financials (

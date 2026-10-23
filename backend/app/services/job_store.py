@@ -23,10 +23,9 @@ class JobStore:
 
     @contextmanager
     def _connection(self):
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         try:
-            conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=5000;")
         except Exception:
             pass
@@ -40,6 +39,10 @@ class JobStore:
 
     def _init_db(self):
         with self._connection() as conn:
+            try:
+                conn.execute("PRAGMA journal_mode=WAL;")
+            except Exception:
+                pass
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ingestion_jobs (
