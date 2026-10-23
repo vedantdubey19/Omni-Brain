@@ -49,7 +49,7 @@ st.set_page_config(
 # LOVABLE BLUSH / ROSE THEME STYLING (CSS)
 # ==========================================
 
-st.markdown("""
+st.html("""
 <style>
 /* High-performance modern native font stack (Zero external network blocking, instant paint) */
 
@@ -95,7 +95,8 @@ header[data-testid="stHeader"] {
 .hero-container {
     padding: 1.5rem 0 1.25rem 0;
     max-width: 900px;
-    contain: content;
+    contain: layout style;
+    content-visibility: visible;
 }
 .eyebrow-pill {
     display: inline-flex;
@@ -119,6 +120,7 @@ header[data-testid="stHeader"] {
     color: #1F1518;
     margin: 0.25rem 0 0.6rem 0;
     letter-spacing: -0.03em;
+    font-display: swap;
     text-rendering: optimizeSpeed;
 }
 .rose-gradient {
@@ -345,11 +347,24 @@ elif "chat_history" not in st.session_state:
 
 
 # ==========================================
+# HERO SECTION (FIRST DOM ELEMENT - INSTANT LCP PAINT)
+# ==========================================
+
+st.html("""
+<div class="hero-container">
+    <div class="eyebrow-pill">✨ Multi-Agent Document Intelligence</div>
+    <div class="hero-title">Ask your <span class="rose-gradient">documents</span> anything.</div>
+    <div class="hero-subtitle">Multi-agent document intelligence — retrieval, reasoning and chart analysis, orchestrated for you.</div>
+</div>
+""")
+
+
+# ==========================================
 # SIDEBAR
 # ==========================================
 
 with st.sidebar:
-    st.markdown("""
+    st.html("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem;">
         <div style="width: 38px; height: 38px; background: linear-gradient(135deg, #F43F5E, #BE185D); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);">🧠</div>
         <div>
@@ -357,7 +372,7 @@ with st.sidebar:
             <span style="font-size: 0.75rem; color: #886F77; font-weight: 500;">Multi-Agent Intelligence</span>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     st.markdown("### ⚙️ Gateway Connectivity")
     backend_input = st.text_input(
@@ -381,12 +396,12 @@ with st.sidebar:
 
     st.markdown("### 📄 Active Artifact")
     if st.session_state.uploaded_filename:
-        st.markdown(f"""
+        st.html(f"""
         <div class="active-pill">
             <span>📌</span>
             <span><b>{st.session_state.uploaded_filename}</b> ({st.session_state.get('uploaded_filetype', 'doc').upper()})</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
         if st.button("🔄 Unload / Switch Document", use_container_width=True):
             st.session_state.uploaded_filename = None
             st.session_state.uploaded_filetype = None
@@ -415,19 +430,6 @@ with st.sidebar:
         st.query_params["session_id"] = new_sid
         st.session_state.chat_history = []
         st.rerun()
-
-
-# ==========================================
-# HERO SECTION (LOVABLE LIGHT PINK THEME)
-# ==========================================
-
-st.markdown("""
-<div class="hero-container">
-    <div class="eyebrow-pill">✨ Multi-Agent Document Intelligence</div>
-    <div class="hero-title">Ask your <span class="rose-gradient">documents</span> anything.</div>
-    <div class="hero-subtitle">Multi-agent document intelligence — retrieval, reasoning and chart analysis, orchestrated for you.</div>
-</div>
-""", unsafe_allow_html=True)
 
 
 # ==========================================
