@@ -98,12 +98,70 @@ async def lifespan(app: FastAPI):
             ]
             for p in pdf_candidates:
                 if os.path.exists(p):
+                    # Copy to data/raw so citation service finds it
+                    os.makedirs(UPLOAD_DIR, exist_ok=True)
+                    dest_raw = os.path.join(UPLOAD_DIR, "OmniBrain_Demo_Report.pdf")
+                    if not os.path.exists(dest_raw):
+                        import shutil
+                        shutil.copyfile(p, dest_raw)
+
                     chunks = retriever_service.retrieve_relevant_chunks("revenue", top_k=1, document_id="OmniBrain_Demo_Report.pdf")
                     if not chunks:
-                        from pdf_parser_module.parser import parse_pdf
-                        res = parse_pdf(p)
-                        _index_parsed_text_to_qdrant(res, "OmniBrain_Demo_Report.pdf")
-                        print(f"[Lifespan] Auto-seeded OmniBrain_Demo_Report.pdf into Qdrant.")
+                        indexed = False
+                        try:
+                            from pdf_parser_module.app.services.parser import parse_pdf
+                            from pathlib import Path
+                            res = parse_pdf("autoseed-demo-job", Path(p), "OmniBrain_Demo_Report.pdf")
+                            _index_parsed_text_to_qdrant(res, "OmniBrain_Demo_Report.pdf")
+                            indexed = True
+                        except Exception as parse_e:
+                            print(f"[Lifespan] Module parser notice: {parse_e}")
+
+                        if not indexed:
+                            # Fallback: parse text directly via fitz (PyMuPDF)
+                            try:
+                                import fitz
+                                from langchain_text_splitters import RecursiveCharacterTextSplitter
+                                from qdrant_client.models import PointStruct, VectorParams, Distance
+                                doc = fitz.open(p)
+                                splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=120)
+                                all_texts = []
+                                all_metadata = []
+                                for page_num in range(len(doc)):
+                                    text = doc[page_num].get_text()
+                                    if text.strip():
+                                        for ch in splitter.split_text(text):
+                                            all_texts.append(ch)
+                                            all_metadata.append({
+                                                "source": "OmniBrain_Demo_Report.pdf",
+                                                "page": page_num + 1,
+                                                "content": ch
+                                            })
+                                if all_texts:
+                                    embeddings = retriever_service.embedder.encode(all_texts, convert_to_numpy=True).tolist()
+                                    col_name = retriever_service.collection_name
+                                    v_size = len(embeddings[0])
+                                    try:
+                                        retriever_service.client.create_collection(
+                                            collection_name=col_name,
+                                            vectors_config=VectorParams(size=v_size, distance=Distance.COSINE)
+                                        )
+                                    except Exception:
+                                        pass
+                                    pts = [
+                                        PointStruct(
+                                            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"OmniBrain_Demo_Report.pdf_{m['page']}_{i}")),
+                                            vector=emb,
+                                            payload=m
+                                        )
+                                        for i, (emb, m) in enumerate(zip(embeddings, all_metadata))
+                                    ]
+                                    retriever_service.client.upsert(collection_name=col_name, points=pts)
+                                    print(f"[Lifespan] Direct fitz auto-seeded OmniBrain_Demo_Report.pdf ({len(pts)} chunks).")
+                            except Exception as fitz_err:
+                                print(f"[Lifespan] Direct fitz fallback notice: {fitz_err}")
+                        else:
+                            print(f"[Lifespan] Auto-seeded OmniBrain_Demo_Report.pdf into Qdrant.")
                     break
         except Exception as e:
             print(f"[Lifespan] PDF auto-seed notice: {e}")
