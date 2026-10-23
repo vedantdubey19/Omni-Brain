@@ -47,12 +47,6 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm shared SentenceTransformer singleton to prevent concurrency race conditions
-    try:
-        preload_embedder()
-    except Exception as e:
-        print(f"[Lifespan] Embedding pre-warm notice: {e}")
-
     # Auto-load axelero_historical_financials.csv if present and DB is empty
     try:
         active_sql = get_sql_service()
@@ -68,6 +62,10 @@ async def lifespan(app: FastAPI):
                     break
     except Exception as e:
         print(f"[Lifespan] SQL auto-load notice: {e}")
+
+    # Pre-warm shared SentenceTransformer in a background thread so it never blocks container startup or /health checks
+    import threading
+    threading.Thread(target=preload_embedder, daemon=True, name="embedder-prewarm").start()
 
     yield
 
