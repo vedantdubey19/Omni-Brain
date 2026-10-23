@@ -3,6 +3,7 @@ import json
 import time
 import sqlite3
 from typing import Dict, Any, Optional, List
+from contextlib import contextmanager
 
 DB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data"))
 os.makedirs(DB_DIR, exist_ok=True)
@@ -20,13 +21,25 @@ class JobStore:
         self.db_path = db_path
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connection(self):
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+        except Exception:
+            pass
+        try:
+            yield conn
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     def _init_db(self):
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ingestion_jobs (
@@ -64,7 +77,7 @@ class JobStore:
         message: str = "Ingestion job queued automatically after upload."
     ) -> Dict[str, Any]:
         now = time.time()
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -85,7 +98,7 @@ class JobStore:
         error_detail: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         now = time.time()
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             updates = ["updated_at = ?"]
             params = [now]
@@ -109,7 +122,7 @@ class JobStore:
         return self.get_job(job_id)
 
     def get_job(self, job_id: str) -> Optional[Dict[str, Any]]:
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM ingestion_jobs WHERE job_id = ?", (job_id,))
             row = cursor.fetchone()
@@ -140,7 +153,7 @@ class JobStore:
                 details_str = json.dumps(details, default=_default_serializer)
             except Exception:
                 details_str = None
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -152,7 +165,7 @@ class JobStore:
             conn.commit()
 
     def get_chat_history(self, session_id: str) -> List[Dict[str, Any]]:
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT role, content, details_json, created_at FROM chat_history WHERE session_id = ? ORDER BY id ASC",
@@ -176,7 +189,7 @@ class JobStore:
             return messages
 
     def clear_chat_history(self, session_id: str) -> None:
-        with self._get_connection() as conn:
+        with self._connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM chat_history WHERE session_id = ?", (session_id,))
             conn.commit()

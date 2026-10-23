@@ -334,9 +334,16 @@ class SQLQueryService:
                     max_tokens=150
                 )
                 raw_sql = response.choices[0].message.content.strip()
-                raw_sql = re.sub(r"^```(sql)?", "", raw_sql, flags=re.IGNORECASE).strip()
-                raw_sql = re.sub(r"```$", "", raw_sql).strip()
-                return raw_sql.rstrip(";")
+                sql_match = re.search(r"```(?:sql)?\s*([\s\S]*?)```", raw_sql, re.IGNORECASE)
+                if sql_match:
+                    raw_sql = sql_match.group(1).strip()
+                else:
+                    raw_sql = re.sub(r"^```(sql)?", "", raw_sql, flags=re.IGNORECASE).strip()
+                    raw_sql = re.sub(r"```$", "", raw_sql).strip()
+                candidate_sql = raw_sql.rstrip(";")
+                is_safe, _ = self.is_query_safe(candidate_sql)
+                if is_safe:
+                    return candidate_sql
             except Exception as e:
                 print(f"[SQLQueryService] LLM SQL generation error: {e}, falling back to template")
 

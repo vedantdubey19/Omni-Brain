@@ -111,6 +111,12 @@ def classify_route(query: str, document_id: Optional[str] = None) -> str:
     if any(keyword.lower() in query_lower for keyword in visual_keywords):
         return "VisionAgent"
 
+    if document_id and any(document_id.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
+        return "VisionAgent"
+
+    if document_id and document_id.lower().endswith(".csv"):
+        return "SQLAgent"
+
     # 2. Text-to-SQL for structured, historical, or cross-period queries
     cross_period_patterns = [
         r"\bcompare\b",

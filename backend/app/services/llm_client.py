@@ -41,7 +41,7 @@ def get_llm_client(timeout_seconds: float = 15.0) -> Tuple[Optional[Any], Option
                 timeout=timeout_seconds,
                 max_retries=0
             )
-            return client, "gemini-flash-lite-latest", "gemini"
+            return client, "gemini-2.5-flash", "gemini"
         except Exception as e:
             print(f"[llm_client] Failed to initialize Gemini OpenAI client: {e}")
 
