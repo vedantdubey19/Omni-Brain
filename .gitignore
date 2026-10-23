@@ -17,8 +17,9 @@ ENV/
 htmlcov/
 
 # Vector Stores & Upload Data (Runtime Generated)
-data/
+data/*
 !data/axelero_historical_financials.csv
+!data/demo/
 data/raw/
 data/processed/
 chroma_db/

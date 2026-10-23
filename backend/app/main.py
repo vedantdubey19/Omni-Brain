@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
         active_sql = get_sql_service()
         if active_sql and not active_sql.has_data():
             default_csv_candidates = [
+                os.path.abspath("data/demo/axelero_historical_financials.csv"),
                 os.path.abspath("data/axelero_historical_financials.csv"),
                 os.path.abspath("axelero_historical_financials.csv")
             ]
@@ -63,9 +64,52 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[Lifespan] SQL auto-load notice: {e}")
 
-    # Pre-warm shared SentenceTransformer in a background thread so it never blocks container startup or /health checks
+    # Auto-seed background thread for pre-warming embedder, demo PDF, and chart images
+    def _auto_seed_background():
+        preload_embedder()
+        # 1. Auto-seed Chart Image for VisionAgent
+        try:
+            chart_candidates = [
+                os.path.abspath("data/demo/chart_q4_2025.png"),
+                os.path.abspath("data/raw/images/chart_q4_2025.png"),
+                os.path.abspath("chart_q4_2025.png")
+            ]
+            target_dirs = [os.path.abspath("data/raw/images"), os.path.abspath("output/images")]
+            for td in target_dirs:
+                os.makedirs(td, exist_ok=True)
+            for c in chart_candidates:
+                if os.path.exists(c):
+                    import shutil
+                    for td in target_dirs:
+                        dest = os.path.join(td, "chart_q4_2025.png")
+                        if not os.path.exists(dest):
+                            shutil.copyfile(c, dest)
+                    print(f"[Lifespan] Auto-seeded chart_q4_2025.png for VisionAgent.")
+                    break
+        except Exception as e:
+            print(f"[Lifespan] Vision auto-seed notice: {e}")
+
+        # 2. Auto-seed OmniBrain_Demo_Report.pdf into Qdrant
+        try:
+            pdf_candidates = [
+                os.path.abspath("data/demo/OmniBrain_Demo_Report.pdf"),
+                os.path.abspath("OmniBrain_Demo_Report.pdf"),
+                os.path.abspath("data/raw/OmniBrain_Demo_Report.pdf")
+            ]
+            for p in pdf_candidates:
+                if os.path.exists(p):
+                    chunks = retriever_service.retrieve_relevant_chunks("revenue", top_k=1, document_id="OmniBrain_Demo_Report.pdf")
+                    if not chunks:
+                        from pdf_parser_module.parser import parse_pdf
+                        res = parse_pdf(p)
+                        _index_parsed_text_to_qdrant(res, "OmniBrain_Demo_Report.pdf")
+                        print(f"[Lifespan] Auto-seeded OmniBrain_Demo_Report.pdf into Qdrant.")
+                    break
+        except Exception as e:
+            print(f"[Lifespan] PDF auto-seed notice: {e}")
+
     import threading
-    threading.Thread(target=preload_embedder, daemon=True, name="embedder-prewarm").start()
+    threading.Thread(target=_auto_seed_background, daemon=True, name="demo-autoseed").start()
 
     yield
 
