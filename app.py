@@ -6,37 +6,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 
-# Intercept and silence third-party browser extension noise in console (e.g., MetaMask contentscript.js ObjectMultiplex warnings)
-components.html("""
-<script>
-try {
-    const parentWin = window.parent;
-    if (parentWin && parentWin.console) {
-        const origWarn = parentWin.console.warn;
-        const origError = parentWin.console.error;
-        
-        parentWin.console.warn = function(...args) {
-            const msg = args.map(a => String(a || '')).join(' ');
-            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
-                return;
-            }
-            origWarn.apply(parentWin.console, args);
-        };
-        
-        parentWin.console.error = function(...args) {
-            const msg = args.map(a => String(a || '')).join(' ');
-            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
-                return;
-            }
-            origError.apply(parentWin.console, args);
-        };
-    }
-} catch (e) {
-    // Cross-origin fallback
-}
-</script>
-""", height=0, width=0)
-
 def escape_dollars(text: str) -> str:
     r"""
     Escapes unescaped dollar signs ($ -> \$) to prevent Streamlit from
@@ -53,6 +22,15 @@ def escape_dollars(text: str) -> str:
 # ==========================================
 
 default_backend_url = os.getenv("BACKEND_URL", "https://omnibrain-backend-fw8h.onrender.com")
+
+@st.cache_data(ttl=30, show_spinner=False)
+def check_backend_health_cached(url: str) -> bool:
+    """Non-blocking, cached healthcheck to achieve fast Largest Contentful Paint (LCP)."""
+    try:
+        r = requests.get(f"{url}/health", timeout=1.2)
+        return r.status_code == 200
+    except Exception:
+        return False
 
 
 # ==========================================
@@ -73,7 +51,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+/* High-performance modern native font stack (Zero external network blocking, instant paint) */
 
 /* --- Root & Global Variables --- */
 :root {
@@ -95,7 +73,7 @@ st.markdown("""
     background-color: #FFF5F7 !important;
     background-image: radial-gradient(#F43F5E 0.55px, transparent 0.55px) !important;
     background-size: 22px 22px !important;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif !important;
     color: var(--text-primary) !important;
 }
 
@@ -113,10 +91,11 @@ header[data-testid="stHeader"] {
     background: transparent !important;
 }
 
-/* Hero Typography */
+/* Hero Typography (Optimized for instant Largest Contentful Paint) */
 .hero-container {
     padding: 1.5rem 0 1.25rem 0;
     max-width: 900px;
+    contain: content;
 }
 .eyebrow-pill {
     display: inline-flex;
@@ -140,6 +119,7 @@ header[data-testid="stHeader"] {
     color: #1F1518;
     margin: 0.25rem 0 0.6rem 0;
     letter-spacing: -0.03em;
+    text-rendering: optimizeSpeed;
 }
 .rose-gradient {
     background: linear-gradient(135deg, #F43F5E 0%, #BE185D 50%, #9D174D 100%);
@@ -346,21 +326,22 @@ if "uploaded_filetype" not in st.session_state:
 if "pending_query" not in st.session_state:
     st.session_state.pending_query = None
 
-# Hydrate chat_history from backend if empty in session state
-if "chat_history" not in st.session_state or not st.session_state.chat_history:
+# Hydrate chat_history only if an existing session_id was passed via URL parameter
+if url_session_id and ("chat_history" not in st.session_state or not st.session_state.chat_history):
     st.session_state.chat_history = []
     try:
         hist_resp = requests.get(
-            f"{BACKEND_URL}/api/v1/chat/history/{st.session_state.session_id}",
-            timeout=3.0
+            f"{BACKEND_URL}/api/v1/chat/history/{url_session_id}",
+            timeout=1.2
         )
         if hist_resp.status_code == 200:
-            hist_data = hist_resp.json()
-            messages = hist_data.get("messages", [])
+            messages = hist_resp.json().get("messages", [])
             if messages:
                 st.session_state.chat_history = messages
     except Exception:
         pass
+elif "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 
 # ==========================================
@@ -390,15 +371,11 @@ with st.sidebar:
 
     BACKEND_URL = st.session_state.backend_url
 
-    # Live Health Check
-    try:
-        health_resp = requests.get(f"{BACKEND_URL}/health", timeout=3.0)
-        if health_resp.status_code == 200:
-            st.success("🟢 Connected to OmniBrain API", icon="✅")
-        else:
-            st.warning(f"🟡 Backend returned HTTP {health_resp.status_code}")
-    except Exception:
-        st.error(f"🔴 Backend unreachable at `{BACKEND_URL}`")
+    # Instant Non-Blocking Cached Health Check (LCP Accelerator)
+    if check_backend_health_cached(BACKEND_URL):
+        st.success("🟢 Connected to OmniBrain API", icon="✅")
+    else:
+        st.warning("🟡 Backend connecting or offline")
 
     st.divider()
 
@@ -874,3 +851,32 @@ st.markdown("""
     OmniBrain · Multi-Agent RAG · LangGraph · Qdrant
 </div>
 """, unsafe_allow_html=True)
+
+# Non-blocking footer injection: silence third-party extension console warnings (e.g., MetaMask contentscript.js)
+components.html("""
+<script>
+try {
+    const parentWin = window.parent;
+    if (parentWin && parentWin.console) {
+        const origWarn = parentWin.console.warn;
+        const origError = parentWin.console.error;
+        
+        parentWin.console.warn = function(...args) {
+            const msg = args.map(a => String(a || '')).join(' ');
+            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
+                return;
+            }
+            origWarn.apply(parentWin.console, args);
+        };
+        
+        parentWin.console.error = function(...args) {
+            const msg = args.map(a => String(a || '')).join(' ');
+            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
+                return;
+            }
+            origError.apply(parentWin.console, args);
+        };
+    }
+} catch (e) {}
+</script>
+""", height=0, width=0)

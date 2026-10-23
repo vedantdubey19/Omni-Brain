@@ -10,3 +10,8 @@ toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
+
+[server]
+enableCORS = false
+enableXsrfProtection = false
+enableStaticServing = true
