@@ -271,14 +271,24 @@ def _index_parsed_text_to_qdrant(parse_result, filename: str):
     collection_name = retriever_service.collection_name
     vector_size = len(embeddings[0])
 
-    # Ensure collection exists
+    # Ensure collection exists with matching vector dimension
     try:
-        retriever_service.client.get_collection(collection_name)
+        col = retriever_service.client.get_collection(collection_name)
+        existing_size = getattr(getattr(getattr(col, "config", None), "params", None), "vectors", None)
+        if existing_size and getattr(existing_size, "size", None) != vector_size:
+            retriever_service.client.delete_collection(collection_name)
+            retriever_service.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            )
     except Exception:
-        retriever_service.client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
-        )
+        try:
+            retriever_service.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            )
+        except Exception:
+            pass
 
     for i, (embedding, meta) in enumerate(zip(embeddings, all_metadata)):
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_{meta['page']}_{i}"))
