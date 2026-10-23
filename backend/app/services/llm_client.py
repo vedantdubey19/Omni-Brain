@@ -41,7 +41,7 @@ def get_llm_client(timeout_seconds: float = 15.0) -> Tuple[Optional[Any], Option
                 timeout=timeout_seconds,
                 max_retries=0
             )
-            return client, "gemini-2.5-flash", "gemini"
+            return client, "gemini-flash-lite-latest", "gemini"
         except Exception as e:
             print(f"[llm_client] Failed to initialize Gemini OpenAI client: {e}")
 
@@ -63,7 +63,7 @@ def get_vision_client(timeout_seconds: float = 20.0) -> Tuple[Optional[Any], Opt
     """
     client, model, provider = get_llm_client(timeout_seconds=timeout_seconds)
     if provider == "gemini":
-        return client, "gemini-2.5-flash", "gemini"
+        return client, "gemini-flash-lite-latest", "gemini"
     elif provider == "openai":
         return client, "gpt-4o", "openai"
     return None, None, None
