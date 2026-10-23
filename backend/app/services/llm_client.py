@@ -63,7 +63,7 @@ def get_vision_client(timeout_seconds: float = 20.0) -> Tuple[Optional[Any], Opt
     """
     client, model, provider = get_llm_client(timeout_seconds=timeout_seconds)
     if provider == "gemini":
-        return client, "gemini-flash-lite-latest", "gemini"
+        return client, "gemini-2.5-flash", "gemini"
     elif provider == "openai":
         return client, "gpt-4o", "openai"
     return None, None, None

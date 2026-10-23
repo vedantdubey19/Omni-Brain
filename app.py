@@ -17,33 +17,10 @@ def escape_dollars(text: str) -> str:
 
 
 # ==========================================
-# CONFIG & BACKEND CONNECTIVITY (Fix 8)
+# CONFIG & BACKEND CONNECTIVITY
 # ==========================================
 
-raw_backend_url = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
-
-def resolve_backend_url(url: str) -> str:
-    """
-    Fast reachability check with 1.0s timeout.
-    Falls back gracefully to http://127.0.0.1:8000 if the configured URL is unreachable.
-    """
-    if not url:
-        return "http://127.0.0.1:8000"
-    target = url.rstrip("/")
-    if "127.0.0.1:8000" in target or "localhost:8000" in target:
-        return target
-
-    try:
-        resp = requests.get(f"{target}/health", timeout=1.0)
-        if resp.status_code == 200:
-            return target
-    except Exception:
-        pass
-
-    # Unreachable configured backend -> fall back to default local gateway
-    return "http://127.0.0.1:8000"
-
-BACKEND_URL = resolve_backend_url(raw_backend_url)
+default_backend_url = os.getenv("BACKEND_URL", "https://omnibrain-backend-fw8h.onrender.com")
 
 
 # ==========================================
@@ -60,6 +37,11 @@ st.set_page_config(
 # ==========================================
 # SESSION STATE & HYDRATION (Fix 7)
 # ==========================================
+
+if "backend_url" not in st.session_state:
+    st.session_state.backend_url = default_backend_url.rstrip("/")
+
+BACKEND_URL = st.session_state.backend_url
 
 # Synchronize session_id with browser query parameters across page reloads
 query_params = st.query_params
@@ -78,6 +60,12 @@ else:
 
 if "uploaded_filename" not in st.session_state:
     st.session_state.uploaded_filename = None
+
+if "uploaded_filetype" not in st.session_state:
+    st.session_state.uploaded_filetype = None
+
+if "pending_query" not in st.session_state:
+    st.session_state.pending_query = None
 
 # Hydrate chat_history from backend if empty in session state
 if "chat_history" not in st.session_state or not st.session_state.chat_history:
@@ -101,7 +89,7 @@ if "chat_history" not in st.session_state or not st.session_state.chat_history:
 # ==========================================
 
 st.title("🧠 OmniBrain")
-st.caption("Multi-Agent Document Intelligence & LangGraph Supervisor Orchestration")
+st.caption("Multi-Agent Document Intelligence • LangGraph Supervisor Orchestration • Multi-Modal RAG")
 
 
 # ==========================================
@@ -109,20 +97,42 @@ st.caption("Multi-Agent Document Intelligence & LangGraph Supervisor Orchestrati
 # ==========================================
 
 with st.sidebar:
-    st.header("📄 Document Management")
+    st.header("⚙️ System Connectivity")
 
-    if raw_backend_url != BACKEND_URL:
-        st.warning(f"⚠️ Primary backend `{raw_backend_url}` unreachable. Using `{BACKEND_URL}`.")
+    backend_input = st.text_input(
+        "FastAPI Gateway URL",
+        value=st.session_state.backend_url,
+        help="Backend API address (e.g., https://omnibrain-backend-fw8h.onrender.com or http://127.0.0.1:8000)"
+    )
+    if backend_input and backend_input.rstrip("/") != st.session_state.backend_url:
+        st.session_state.backend_url = backend_input.rstrip("/")
+        st.rerun()
 
+    BACKEND_URL = st.session_state.backend_url
+
+    # Live Health Check
+    try:
+        health_resp = requests.get(f"{BACKEND_URL}/health", timeout=3.0)
+        if health_resp.status_code == 200:
+            st.success("🟢 Connected to Backend", icon="✅")
+        else:
+            st.warning(f"🟡 Backend returned HTTP {health_resp.status_code}")
+    except Exception:
+        st.error(f"🔴 Backend unreachable at `{BACKEND_URL}`")
+
+    st.divider()
+
+    st.header("📄 Active Artifact")
     if st.session_state.uploaded_filename:
         st.success(f"✅ Active: **{st.session_state.uploaded_filename}**")
+        if st.session_state.uploaded_filetype:
+            st.caption(f"Type: `{st.session_state.uploaded_filetype.upper()}`")
     else:
-        st.info("Upload a PDF document to begin asking questions.")
+        st.info("Upload a PDF document, CSV dataset, or visual chart to begin.")
 
     st.divider()
 
     st.caption(f"**Session ID:** `{st.session_state.session_id[:8]}...`")
-    st.caption(f"**Backend Gateway:** `{BACKEND_URL}`")
 
     if st.button("🗑️ Clear Chat History", use_container_width=True):
         # Clear backend chat history for this session as well
@@ -141,17 +151,22 @@ with st.sidebar:
 
 
 # ==========================================
-# PDF UPLOAD WIDGET & INGESTION POLLING (Fix 5)
+# MULTI-FILE UPLOAD WIDGET (PDF, CSV, IMAGES)
 # ==========================================
 
-st.subheader("📄 Upload Document")
+st.subheader("📁 Upload Document, Dataset, or Visual Chart")
 
 uploaded_file = st.file_uploader(
-    "Choose a PDF file",
-    type=["pdf"]
+    "Choose a file (PDF Document, CSV Financial Dataset, or Chart Image)",
+    type=["pdf", "csv", "png", "jpg", "jpeg", "webp"]
 )
 
 if uploaded_file is not None:
+    file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+
+    # 1. PDF Document Handling
+    if file_ext == ".pdf":
+        st.caption(f"📄 **PDF Document Selected:** `{uploaded_file.name}` ({len(uploaded_file.getvalue()) / 1024:.1f} KB)")
     if st.button("Upload & Index Document", type="primary"):
         with st.spinner("📤 Uploading document to OmniBrain API..."):
             try:
@@ -228,13 +243,99 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"❌ Error during upload: {e}")
 
+    # 2. CSV Financial Dataset Handling
+    elif file_ext == ".csv":
+        st.caption(f"📊 **CSV Financial Dataset Selected:** `{uploaded_file.name}` ({len(uploaded_file.getvalue()) / 1024:.1f} KB)")
+        if st.button("📊 Upload & Ingest CSV into SQL Database", type="primary"):
+            with st.spinner("📥 Loading structured historical data into SQLite database..."):
+                try:
+                    files = {
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            "text/csv"
+                        )
+                    }
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/v1/sql/load-csv",
+                        files=files,
+                        timeout=30
+                    )
+                    if response.status_code == 200:
+                        csv_data = response.json()
+                        rows_cnt = csv_data.get("rows_inserted", 0)
+                        table_name = csv_data.get("table", "company_financials")
+                        cols = csv_data.get("columns", [])
+                        st.session_state.uploaded_filename = uploaded_file.name
+                        st.session_state.uploaded_filetype = "csv"
+                        st.success(
+                            f"🎉 **{uploaded_file.name}** loaded successfully into table `{table_name}`! "
+                            f"({rows_cnt} rows, columns: {', '.join(cols[:5])}...)"
+                        )
+                    else:
+                        st.error(f"❌ CSV loading failed with status code {response.status_code}: {response.text}")
+                except requests.exceptions.ConnectionError:
+                    st.error(f"❌ Cannot connect to FastAPI backend at {BACKEND_URL}")
+                except Exception as e:
+                    st.error(f"❌ Error during CSV upload: {e}")
+
+    # 3. Image Handling (Charts, Figures, Diagrams)
+    elif file_ext in [".png", ".jpg", ".jpeg", ".webp"]:
+        st.caption(f"🖼️ **Visual Artifact Selected:** `{uploaded_file.name}`")
+        st.image(uploaded_file, caption=f"Preview: {uploaded_file.name}", width=450)
+        if st.button("👁️ Upload & Register Image for Vision Agent", type="primary"):
+            with st.spinner("📤 Registering visual artifact for VisionAgent multimodal analysis..."):
+                try:
+                    mime = "image/png" if file_ext == ".png" else "image/jpeg"
+                    files = {
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            mime
+                        )
+                    }
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/v1/vision/upload-image",
+                        files=files,
+                        timeout=30
+                    )
+                    if response.status_code == 200:
+                        st.session_state.uploaded_filename = uploaded_file.name
+                        st.session_state.uploaded_filetype = "image"
+                        st.success(f"🎉 **{uploaded_file.name}** uploaded and registered! Ask questions about this chart below.")
+                    else:
+                        st.error(f"❌ Image upload failed with status code {response.status_code}: {response.text}")
+                except requests.exceptions.ConnectionError:
+                    st.error(f"❌ Cannot connect to FastAPI backend at {BACKEND_URL}")
+                except Exception as e:
+                    st.error(f"❌ Error during image upload: {e}")
+
 
 # ==========================================
-# CURRENT DOCUMENT STATUS BANNER
+# CURRENT DOCUMENT STATUS BANNER & QUICK DEMO PROMPTS
 # ==========================================
 
 if st.session_state.uploaded_filename:
-    st.caption(f"📌 Context Filter: **{st.session_state.uploaded_filename}**")
+    st.info(f"📌 Context Filter: **{st.session_state.uploaded_filename}** ({st.session_state.get('uploaded_filetype', 'file').upper()})")
+
+# Interactive Quick Prompts for Demonstration
+st.caption("💡 **Quick Demo Prompts (Click to Run):**")
+prompt_cols = st.columns(3)
+
+with prompt_cols[0]:
+    if st.button("📄 Total FY2025 Revenue", use_container_width=True):
+        st.session_state.pending_query = "What was Axelero Demo Corp's total revenue in fiscal year 2025?"
+        st.rerun()
+
+with prompt_cols[1]:
+    if st.button("📊 Compare Q1 2025 vs Q1 2021", use_container_width=True):
+        st.session_state.pending_query = "Compare Q1 2025 revenue to Q1 2021"
+        st.rerun()
+
+with prompt_cols[2]:
+    if st.button("👁️ Highest Quarterly Revenue Chart", use_container_width=True):
+        st.session_state.pending_query = "What was the highest quarterly revenue shown in the chart?"
+        st.rerun()
 
 st.divider()
 
@@ -313,22 +414,27 @@ for message in st.session_state.chat_history:
 
 question = st.chat_input("Ask a question about your uploaded document or request chart analysis...")
 
-if question:
+active_query = question
+if not active_query and st.session_state.get("pending_query"):
+    active_query = st.session_state.pending_query
+    st.session_state.pending_query = None
+
+if active_query:
     # 1. Record and display user message
     st.session_state.chat_history.append({
         "role": "user",
-        "content": question
+        "content": active_query
     })
 
     with st.chat_message("user"):
-        st.markdown(escape_dollars(question))
+        st.markdown(escape_dollars(active_query))
 
     # 2. Assistant execution via LangGraph Supervisor
     with st.chat_message("assistant"):
         with st.spinner("🧠 Supervisor evaluating query intent and orchestrating specialized agents..."):
             try:
                 payload = {
-                    "question": question,
+                    "question": active_query,
                     "session_id": st.session_state.session_id,
                     "document_id": st.session_state.uploaded_filename
                 }

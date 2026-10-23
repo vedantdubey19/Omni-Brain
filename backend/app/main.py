@@ -597,6 +597,42 @@ async def load_sql_csv(file: UploadFile = File(...)):
             detail=f"Failed to load CSV: {str(e)}"
         )
 
+@app.post("/api/v1/vision/upload-image", status_code=status.HTTP_200_OK)
+async def upload_vision_image(file: UploadFile = File(...)):
+    """
+    Upload an image file (.png, .jpg, .jpeg, .webp) for multimodal VisionAgent analysis.
+    Saves into data/raw/images/ and output/images/.
+    """
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only PNG, JPG, JPEG, and WEBP images are supported."
+        )
+
+    img_dirs = [os.path.abspath("data/raw/images"), os.path.abspath("output/images")]
+    for d in img_dirs:
+        os.makedirs(d, exist_ok=True)
+
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image size exceeds maximum permitted limit of 15MB."
+        )
+
+    for d in img_dirs:
+        target_path = os.path.join(d, file.filename)
+        async with aiofiles.open(target_path, "wb") as out_file:
+            await out_file.write(content)
+
+    return {
+        "status": "SUCCESS",
+        "filename": file.filename,
+        "size_bytes": len(content),
+        "message": f"Image '{file.filename}' uploaded successfully and registered for VisionAgent analysis."
+    }
+
 @app.post("/api/v1/agent/query", response_model=AgentQueryResponse, status_code=status.HTTP_200_OK)
 async def query_agent_graph(request: AgentQueryRequest):
     clean_question = request.question.strip()

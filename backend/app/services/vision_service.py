@@ -58,12 +58,20 @@ class VisionAnalysisService:
             os.path.abspath("pdf_parser_module/sample_pdfs")
         ]
 
-        # 1. Search document-scoped subfolder if document_id provided
+        # 1. Direct file check if document_id points to an existing file
+        if document_id and os.path.isfile(document_id):
+            return os.path.abspath(document_id)
+
+        # 2. Search document-scoped subfolder or file match if document_id provided
         if document_id:
             clean_doc_stem = Path(document_id).stem
             for base_dir in search_dirs:
                 if not os.path.isdir(base_dir):
                     continue
+                # Direct file in base_dir
+                direct_file = os.path.join(base_dir, os.path.basename(document_id))
+                if os.path.isfile(direct_file) and direct_file.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                    return direct_file
                 # Exact folder match
                 for cand_dir in [os.path.join(base_dir, document_id), os.path.join(base_dir, clean_doc_stem)]:
                     if os.path.isdir(cand_dir):
@@ -71,7 +79,7 @@ class VisionAnalysisService:
                             if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
                                 return os.path.join(cand_dir, f)
 
-        # 2. General search in extracted image directories
+        # 3. General search in extracted image directories
         for base_dir in search_dirs:
             if not os.path.isdir(base_dir):
                 continue
