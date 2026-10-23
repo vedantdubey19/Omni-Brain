@@ -10,19 +10,104 @@ from qdrant_client.models import Filter, FieldCondition, MatchValue
 # Global thread-safe reentrant lock and singleton for SentenceTransformer
 _EMBEDDER_LOCK = threading.RLock()
 _GLOBAL_EMBEDDER = None
+_GLOBAL_QDRANT_CLIENT = None
+
+
+def get_shared_qdrant_client(url=None, api_key=None, host=None, port=None) -> QdrantClient:
+    """Returns a shared process-wide QdrantClient singleton to prevent split-brain in-memory databases."""
+    global _GLOBAL_QDRANT_CLIENT
+    if _GLOBAL_QDRANT_CLIENT is not None:
+        return _GLOBAL_QDRANT_CLIENT
+
+    qdrant_url = url or os.getenv("QDRANT_URL")
+    qdrant_api_key = api_key or os.getenv("QDRANT_API_KEY")
+    qdrant_host = host or os.getenv("QDRANT_HOST", "localhost")
+    qdrant_port = port or int(os.getenv("QDRANT_PORT", "6333"))
+
+    try:
+        if qdrant_url:
+            client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=5.0)
+        else:
+            client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=2.0)
+        client.get_collections()
+        _GLOBAL_QDRANT_CLIENT = client
+    except Exception:
+        # Fallback to shared in-memory database across all services
+        _GLOBAL_QDRANT_CLIENT = QdrantClient(location=":memory:")
+
+    return _GLOBAL_QDRANT_CLIENT
+
+
+class DummyFallbackEmbedder:
+    """Safe fallback embedder producing 384-dim zero vectors if offline without model cache."""
+    def encode(self, texts, **kwargs):
+        import numpy as np
+        if isinstance(texts, str):
+            return np.zeros(384, dtype=np.float32)
+        return np.zeros((len(texts), 384), dtype=np.float32)
+
+
+def get_gemini_api_key_local() -> str:
+    for k in ["GEMINI_API_KEY", "Gemini_API_KEY", "gemini_api_key"]:
+        v = os.getenv(k, "").strip()
+        if v and not v.startswith("your-") and not v.startswith("sk-placeholder"):
+            return v
+    return ""
+
+
+class GeminiEmbedder:
+    """Cloud-native zero-RAM embedder using Gemini embedding API."""
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    def encode(self, texts, convert_to_numpy: bool = True, **kwargs):
+        import urllib.request, json
+        import numpy as np
+        is_single = isinstance(texts, str)
+        text_list = [texts] if is_single else list(texts)
+        results = []
+        for t in text_list:
+            clean_t = str(t).strip()[:1500]
+            if not clean_t:
+                results.append([0.0] * 3072)
+                continue
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={self.api_key}"
+            data = json.dumps({
+                "model": "models/gemini-embedding-001",
+                "content": {"parts": [{"text": clean_t}]}
+            }).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    res = json.loads(resp.read().decode())
+                    results.append(res["embedding"]["values"])
+            except Exception as e:
+                print(f"[GeminiEmbedder] Notice: embedding API fallback: {e}")
+                results.append([0.0] * 3072)
+        arr = np.array(results, dtype=np.float32)
+        return arr[0] if is_single else arr
 
 
 def get_shared_embedder():
-    """Thread-safe retrieval/initialization of the shared SentenceTransformer singleton."""
+    """Thread-safe retrieval/initialization of the shared embedder singleton."""
     global _GLOBAL_EMBEDDER
     if _GLOBAL_EMBEDDER is None:
         with _EMBEDDER_LOCK:
             if _GLOBAL_EMBEDDER is None:
-                from sentence_transformers import SentenceTransformer
-                try:
-                    _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
-                except Exception:
-                    _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
+                g_key = get_gemini_api_key_local()
+                if g_key:
+                    _GLOBAL_EMBEDDER = GeminiEmbedder(g_key)
+                else:
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+                    except Exception:
+                        try:
+                            from sentence_transformers import SentenceTransformer
+                            _GLOBAL_EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
+                        except Exception as e:
+                            print(f"[RetrieverService] Notice: Model unavailable ({e}), using fallback embedder.")
+                            _GLOBAL_EMBEDDER = DummyFallbackEmbedder()
     return _GLOBAL_EMBEDDER
 
 
@@ -51,19 +136,8 @@ class RetrieverService:
         qdrant_host = host or os.getenv("QDRANT_HOST", "localhost")
         qdrant_port = port or int(os.getenv("QDRANT_PORT", "6333"))
 
-        # Fallback priority: Qdrant Cloud (URL/API Key) -> Local Qdrant -> In-Memory
-        try:
-            if qdrant_url:
-                self.client = QdrantClient(
-                    url=qdrant_url,
-                    api_key=qdrant_api_key,
-                    timeout=5.0
-                )
-            else:
-                self.client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=2.0)
-            self.client.get_collections()
-        except Exception:
-            self.client = QdrantClient(location=":memory:")
+        # Fallback priority: Qdrant Cloud (URL/API Key) -> Local Qdrant -> In-Memory (Singleton)
+        self.client = get_shared_qdrant_client(url=qdrant_url, api_key=qdrant_api_key, host=qdrant_host, port=qdrant_port)
 
         # Optional instance-level embedder override, defaults to global singleton
         self._embedder = None

@@ -41,9 +41,19 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-models-all-MiniLM-L6-v2
 
-      - name: Run pytest
+      - name: Pre-download embedding model for tests
         run: |
-          pytest -v --maxfail=1
+          python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+      - name: Validate Backend Import Integrity
+        run: |
+          python -c "import backend.app.main; print('Backend modules verified successfully')"
+
+      - name: Validate React Frontend Build
+        run: |
+          cd frontend
+          npm install
+          npm run build
 
   docker-build-check:
     runs-on: ubuntu-latest

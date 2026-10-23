@@ -37,19 +37,20 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 - API Docs & Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Health Check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
-### D. Run the Streamlit Frontend
+### D. Run the React Frontend
 In a separate terminal:
 ```bash
-source .venv/bin/activate
-streamlit run app.py --server.port 8501
+cd frontend
+npm install
+npm run dev
 ```
-- Frontend UI: [http://127.0.0.1:8501](http://127.0.0.1:8501)
+- Frontend UI: [http://localhost:5173](http://localhost:5173)
 
 ---
 
 ## 3. Local Containerized Deployment (Docker Compose)
 
-Launch the full stack (FastAPI backend, Streamlit frontend, and local Qdrant container) on a shared bridge network:
+Launch the full stack (FastAPI backend, React frontend, and local Qdrant container) on a shared bridge network:
 
 ```bash
 docker compose up --build
@@ -58,7 +59,7 @@ docker compose up --build
 | Service | Container Name | Port | Description |
 | :--- | :--- | :--- | :--- |
 | **Backend** | `omnibrain_backend` | `8000` | FastAPI gateway with LangGraph orchestration |
-| **Frontend** | `omnibrain_frontend` | `8501` | Streamlit multimodal interactive dashboard |
+| **Frontend** | `omnibrain_frontend` | `8501` | React 19 + Vite interactive dashboard |
 | **Qdrant** | `omnibrain_qdrant` | `6333` | Vector database with persistence volume |
 
 ### Useful Container Commands:
@@ -76,7 +77,7 @@ docker exec -it omnibrain_backend bash
 ### Verification Endpoints:
 - Backend Health: `http://localhost:8000/health`
 - Swagger OpenAPI: `http://localhost:8000/docs`
-- Streamlit UI: `http://localhost:8501`
+- React Frontend UI: `http://localhost:8501`
 - Qdrant Dashboard: `http://localhost:6333/dashboard`
 
 ---
@@ -124,10 +125,10 @@ fly deploy
 
 ## 6. Cross-Origin Resource Sharing (CORS) Configuration
 
-When frontend and backend are hosted on distinct domains (e.g., frontend on `https://omnibrain.streamlit.app` and backend on `https://omnibrain-backend.onrender.com`):
+When frontend and backend are hosted on distinct domains (e.g., frontend on `https://omnibrain-frontend-6och.onrender.com` and backend on `https://omnibrain-backend-fw8h.onrender.com`):
 - Set `ALLOWED_ORIGINS` on the backend service to allow your frontend domain:
   ```bash
-  ALLOWED_ORIGINS=https://omnibrain.streamlit.app,http://localhost:8501
+  ALLOWED_ORIGINS=https://omnibrain-frontend-6och.onrender.com,http://localhost:8501,http://localhost:5173
   ```
 - By default, `ALLOWED_ORIGINS=*` is configured for seamless deployment across preview environments.
 

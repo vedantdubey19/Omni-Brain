@@ -17,8 +17,11 @@ ENV/
 htmlcov/
 
 # Vector Stores & Upload Data (Runtime Generated)
-data/
-data/raw/
+data/*
+!data/.gitkeep
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
 data/processed/
 chroma_db/
 *.db
@@ -29,14 +32,14 @@ logs/
 output/
 uploads/
 
-# Streamlit
-.streamlit/
+# Node / Frontend UI
+node_modules/
+dist/
+.oxlintrc.json
+
 
 # OS / IDE
 .DS_Store
+*/.DS_Store
 .vscode/
 .idea/
-.env
-__pycache__/
-*.pyc
-chroma_db/

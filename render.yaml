@@ -12,6 +12,8 @@ services:
         value: 8000
       - key: OPENAI_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: LANGFUSE_PUBLIC_KEY
         sync: false
       - key: LANGFUSE_SECRET_KEY
@@ -33,7 +35,7 @@ services:
       - key: LANGFUSE_BASE_URL
         value: https://cloud.langfuse.com
 
-  # OmniBrain Frontend UI (Streamlit)
+  # OmniBrain Frontend UI (React + Vite SPA)
   - type: web
     name: omnibrain-frontend
     runtime: docker
@@ -44,8 +46,5 @@ services:
     envVars:
       - key: PORT
         value: 8501
-      - key: BACKEND_URL
-        fromService:
-          type: web
-          name: omnibrain-backend
-          property: host
+      - key: VITE_BACKEND_URL
+        value: https://omnibrain-backend-fw8h.onrender.com

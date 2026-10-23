@@ -9,6 +9,10 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Service imports with robust fallbacks
 try:
@@ -22,6 +26,7 @@ try:
         AgentQueryRequest,
         AgentQueryResponse
     )
+    from backend.app.agents.supervisor import get_sql_service
 except ImportError:
     from services.guardrails_service import GuardrailsService
     from services.retriever_service import RetrieverService, preload_embedder
@@ -33,15 +38,137 @@ except ImportError:
         AgentQueryRequest,
         AgentQueryResponse
     )
+    try:
+        from agents.supervisor import get_sql_service
+    except ImportError:
+        def get_sql_service():
+            return None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm shared SentenceTransformer singleton to prevent concurrency race conditions
+    # Auto-load axelero_historical_financials.csv if present and DB is empty
     try:
-        preload_embedder()
+        active_sql = get_sql_service()
+        if active_sql and not active_sql.has_data():
+            default_csv_candidates = [
+                os.path.abspath("data/demo/axelero_historical_financials.csv"),
+                os.path.abspath("data/axelero_historical_financials.csv"),
+                os.path.abspath("axelero_historical_financials.csv")
+            ]
+            for csv_path in default_csv_candidates:
+                if os.path.exists(csv_path):
+                    active_sql.load_csv(csv_path)
+                    print(f"[Lifespan] Auto-loaded {csv_path} into SQL database.")
+                    break
     except Exception as e:
-        print(f"[Lifespan] Embedding pre-warm notice: {e}")
+        print(f"[Lifespan] SQL auto-load notice: {e}")
+
+    # Auto-seed background thread for pre-warming embedder, demo PDF, and chart images
+    def _auto_seed_background():
+        preload_embedder()
+        # 1. Auto-seed Chart Image for VisionAgent
+        try:
+            chart_candidates = [
+                os.path.abspath("data/demo/chart_q4_2025.png"),
+                os.path.abspath("data/raw/images/chart_q4_2025.png"),
+                os.path.abspath("chart_q4_2025.png")
+            ]
+            target_dirs = [os.path.abspath("data/raw/images"), os.path.abspath("output/images")]
+            for td in target_dirs:
+                os.makedirs(td, exist_ok=True)
+            for c in chart_candidates:
+                if os.path.exists(c):
+                    import shutil
+                    for td in target_dirs:
+                        dest = os.path.join(td, "chart_q4_2025.png")
+                        if not os.path.exists(dest):
+                            shutil.copyfile(c, dest)
+                    print(f"[Lifespan] Auto-seeded chart_q4_2025.png for VisionAgent.")
+                    break
+        except Exception as e:
+            print(f"[Lifespan] Vision auto-seed notice: {e}")
+
+        # 2. Auto-seed OmniBrain_Demo_Report.pdf into Qdrant
+        try:
+            pdf_candidates = [
+                os.path.abspath("data/demo/OmniBrain_Demo_Report.pdf"),
+                os.path.abspath("OmniBrain_Demo_Report.pdf"),
+                os.path.abspath("data/raw/OmniBrain_Demo_Report.pdf")
+            ]
+            for p in pdf_candidates:
+                if os.path.exists(p):
+                    # Copy to data/raw so citation service finds it
+                    os.makedirs(UPLOAD_DIR, exist_ok=True)
+                    dest_raw = os.path.join(UPLOAD_DIR, "OmniBrain_Demo_Report.pdf")
+                    if not os.path.exists(dest_raw):
+                        import shutil
+                        shutil.copyfile(p, dest_raw)
+
+                    chunks = retriever_service.retrieve_relevant_chunks("revenue", top_k=1, document_id="OmniBrain_Demo_Report.pdf")
+                    if not chunks:
+                        indexed = False
+                        try:
+                            from pdf_parser_module.app.services.parser import parse_pdf
+                            from pathlib import Path
+                            res = parse_pdf("autoseed-demo-job", Path(p), "OmniBrain_Demo_Report.pdf")
+                            _index_parsed_text_to_qdrant(res, "OmniBrain_Demo_Report.pdf")
+                            indexed = True
+                        except Exception as parse_e:
+                            print(f"[Lifespan] Module parser notice: {parse_e}")
+
+                        if not indexed:
+                            # Fallback: parse text directly via fitz (PyMuPDF)
+                            try:
+                                import fitz
+                                from langchain_text_splitters import RecursiveCharacterTextSplitter
+                                from qdrant_client.models import PointStruct, VectorParams, Distance
+                                doc = fitz.open(p)
+                                splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=120)
+                                all_texts = []
+                                all_metadata = []
+                                for page_num in range(len(doc)):
+                                    text = doc[page_num].get_text()
+                                    if text.strip():
+                                        for ch in splitter.split_text(text):
+                                            all_texts.append(ch)
+                                            all_metadata.append({
+                                                "source": "OmniBrain_Demo_Report.pdf",
+                                                "page": page_num + 1,
+                                                "content": ch
+                                            })
+                                if all_texts:
+                                    embeddings = retriever_service.embedder.encode(all_texts, convert_to_numpy=True).tolist()
+                                    col_name = retriever_service.collection_name
+                                    v_size = len(embeddings[0])
+                                    try:
+                                        retriever_service.client.create_collection(
+                                            collection_name=col_name,
+                                            vectors_config=VectorParams(size=v_size, distance=Distance.COSINE)
+                                        )
+                                    except Exception:
+                                        pass
+                                    pts = [
+                                        PointStruct(
+                                            id=str(uuid.uuid5(uuid.NAMESPACE_DNS, f"OmniBrain_Demo_Report.pdf_{m['page']}_{i}")),
+                                            vector=emb,
+                                            payload=m
+                                        )
+                                        for i, (emb, m) in enumerate(zip(embeddings, all_metadata))
+                                    ]
+                                    retriever_service.client.upsert(collection_name=col_name, points=pts)
+                                    print(f"[Lifespan] Direct fitz auto-seeded OmniBrain_Demo_Report.pdf ({len(pts)} chunks).")
+                            except Exception as fitz_err:
+                                print(f"[Lifespan] Direct fitz fallback notice: {fitz_err}")
+                        else:
+                            print(f"[Lifespan] Auto-seeded OmniBrain_Demo_Report.pdf into Qdrant.")
+                    break
+        except Exception as e:
+            print(f"[Lifespan] PDF auto-seed notice: {e}")
+
+    import threading
+    threading.Thread(target=_auto_seed_background, daemon=True, name="demo-autoseed").start()
+
     yield
 
 
@@ -246,14 +373,24 @@ def _index_parsed_text_to_qdrant(parse_result, filename: str):
     collection_name = retriever_service.collection_name
     vector_size = len(embeddings[0])
 
-    # Ensure collection exists
+    # Ensure collection exists with matching vector dimension
     try:
-        retriever_service.client.get_collection(collection_name)
+        col = retriever_service.client.get_collection(collection_name)
+        existing_size = getattr(getattr(getattr(col, "config", None), "params", None), "vectors", None)
+        if existing_size and getattr(existing_size, "size", None) != vector_size:
+            retriever_service.client.delete_collection(collection_name)
+            retriever_service.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            )
     except Exception:
-        retriever_service.client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
-        )
+        try:
+            retriever_service.client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            )
+        except Exception:
+            pass
 
     for i, (embedding, meta) in enumerate(zip(embeddings, all_metadata)):
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_{meta['page']}_{i}"))
@@ -344,7 +481,7 @@ async def get_ingestion_status(job_id: str):
 @app.get("/api/v1/search", status_code=status.HTTP_200_OK)
 async def search_documents(query: str, top_k: int = 3, document_id: Optional[str] = None):
     """
-    Search endpoint compatible with Streamlit frontend.
+    Search endpoint compatible with web frontend clients.
     """
     clean_query = query.strip()
     if not clean_query:
@@ -527,6 +664,83 @@ async def clear_session_chat_history(session_id: str):
     return {
         "session_id": session_id,
         "message": f"Chat history for session '{session_id}' cleared successfully."
+    }
+
+@app.post("/api/v1/sql/load-csv", status_code=status.HTTP_200_OK)
+async def load_sql_csv(file: UploadFile = File(...)):
+    """
+    Upload a CSV file to ingest structured historical financial data into SQLite.
+    Validates required columns, formats, and replaces existing company_financials table.
+    """
+    if not (file.filename and file.filename.lower().endswith(".csv")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only .csv files are supported."
+        )
+
+    # Size check: 10MB limit
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds maximum permitted limit of 10MB."
+        )
+
+    active_sql = get_sql_service()
+    if active_sql is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="SQL Query service is unavailable."
+        )
+
+    try:
+        result = active_sql.load_csv(content)
+        return result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"CSV validation error: {str(ve)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load CSV: {str(e)}"
+        )
+
+@app.post("/api/v1/vision/upload-image", status_code=status.HTTP_200_OK)
+async def upload_vision_image(file: UploadFile = File(...)):
+    """
+    Upload an image file (.png, .jpg, .jpeg, .webp) for multimodal VisionAgent analysis.
+    Saves into data/raw/images/ and output/images/.
+    """
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only PNG, JPG, JPEG, and WEBP images are supported."
+        )
+
+    img_dirs = [os.path.abspath("data/raw/images"), os.path.abspath("output/images")]
+    for d in img_dirs:
+        os.makedirs(d, exist_ok=True)
+
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image size exceeds maximum permitted limit of 15MB."
+        )
+
+    for d in img_dirs:
+        target_path = os.path.join(d, file.filename)
+        async with aiofiles.open(target_path, "wb") as out_file:
+            await out_file.write(content)
+
+    return {
+        "status": "SUCCESS",
+        "filename": file.filename,
+        "size_bytes": len(content),
+        "message": f"Image '{file.filename}' uploaded successfully and registered for VisionAgent analysis."
     }
 
 @app.post("/api/v1/agent/query", response_model=AgentQueryResponse, status_code=status.HTTP_200_OK)
