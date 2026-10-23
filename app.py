@@ -3,7 +3,39 @@ import re
 import time
 import uuid
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
+
+# Intercept and silence third-party browser extension noise in console (e.g., MetaMask contentscript.js ObjectMultiplex warnings)
+components.html("""
+<script>
+try {
+    const parentWin = window.parent;
+    if (parentWin && parentWin.console) {
+        const origWarn = parentWin.console.warn;
+        const origError = parentWin.console.error;
+        
+        parentWin.console.warn = function(...args) {
+            const msg = args.map(a => String(a || '')).join(' ');
+            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
+                return;
+            }
+            origWarn.apply(parentWin.console, args);
+        };
+        
+        parentWin.console.error = function(...args) {
+            const msg = args.map(a => String(a || '')).join(' ');
+            if (msg.includes('ObjectMultiplex') || msg.includes('MaxListenersExceeded') || msg.includes('contentscript') || msg.includes('app-init-liveness') || msg.includes('background-liveness')) {
+                return;
+            }
+            origError.apply(parentWin.console, args);
+        };
+    }
+} catch (e) {
+    // Cross-origin fallback
+}
+</script>
+""", height=0, width=0)
 
 def escape_dollars(text: str) -> str:
     r"""
@@ -378,8 +410,16 @@ with st.sidebar:
             <span><b>{st.session_state.uploaded_filename}</b> ({st.session_state.get('uploaded_filetype', 'doc').upper()})</span>
         </div>
         """, unsafe_allow_html=True)
+        if st.button("🔄 Unload / Switch Document", use_container_width=True):
+            st.session_state.uploaded_filename = None
+            st.session_state.uploaded_filetype = None
+            st.rerun()
     else:
-        st.caption("No document currently active. Upload a PDF, CSV, or chart to begin.")
+        st.caption("No custom document active.")
+        if st.button("📑 Load Sample Demo Report", use_container_width=True):
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
+            st.rerun()
 
     st.divider()
 
@@ -583,20 +623,32 @@ sugg_col1, sugg_col2 = st.columns(2)
 
 with sugg_col1:
     if st.button("📄 Summarize this document →", use_container_width=True):
-        st.session_state.pending_query = "Please provide a comprehensive summary of this document."
+        if not st.session_state.uploaded_filename:
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
+        st.session_state.pending_query = "Please provide a comprehensive executive summary of this document."
         st.rerun()
 
     if st.button("📊 Analyze the charts →", use_container_width=True):
+        if not st.session_state.uploaded_filename:
+            st.session_state.uploaded_filename = "chart_q4_2025.png"
+            st.session_state.uploaded_filetype = "image"
         st.session_state.pending_query = "What was the highest quarterly revenue shown in the chart?"
         st.rerun()
 
 with sugg_col2:
     if st.button("🔍 List the key findings →", use_container_width=True):
-        st.session_state.pending_query = "What are the key findings, metrics, and highlights?"
+        if not st.session_state.uploaded_filename:
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
+        st.session_state.pending_query = "What are the key findings, metrics, and highlights in this document?"
         st.rerun()
 
     if st.button("⚠️ What are the risks mentioned? →", use_container_width=True):
-        st.session_state.pending_query = "What are the primary risks and challenges mentioned?"
+        if not st.session_state.uploaded_filename:
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
+        st.session_state.pending_query = "What are the primary risks, challenges, and concerns mentioned?"
         st.rerun()
 
 # Quick Demo Pills Accordion
@@ -604,14 +656,20 @@ with st.expander("⚡ Run Instant Verified Demo Queries", expanded=False):
     demo_cols = st.columns(3)
     with demo_cols[0]:
         if st.button("Total FY2025 Revenue", use_container_width=True):
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
             st.session_state.pending_query = "What was Axelero Demo Corp's total revenue in fiscal year 2025?"
             st.rerun()
     with demo_cols[1]:
         if st.button("Compare Q1 2025 vs Q1 2021", use_container_width=True):
+            st.session_state.uploaded_filename = "axelero_historical_financials.csv"
+            st.session_state.uploaded_filetype = "csv"
             st.session_state.pending_query = "Compare Q1 2025 revenue to Q1 2021"
             st.rerun()
     with demo_cols[2]:
         if st.button("Operating Margin Improvement", use_container_width=True):
+            st.session_state.uploaded_filename = "OmniBrain_Demo_Report.pdf"
+            st.session_state.uploaded_filetype = "pdf"
             st.session_state.pending_query = "How much did operating margin improve by?"
             st.rerun()
 
