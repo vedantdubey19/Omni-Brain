@@ -21,6 +21,9 @@ export default function App() {
   const [currentView, setCurrentView] = useState('app'); // 'app' | '404' | 'privacy' | 'terms'
   const [backendStatus, setBackendStatus] = useState('checking'); // 'healthy' | 'offline' | 'checking'
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sessionId] = useState(() => 'dad70b50');
+  const [gatewayUrl, setGatewayUrl] = useState(BACKEND_URL);
+  const activeGateway = gatewayUrl.trim() || BACKEND_URL;
   
   // File upload state
   const [file, setFile] = useState(null);
@@ -63,11 +66,11 @@ export default function App() {
     }, 4000);
   };
 
-  // Check Backend Health on Mount
+  // Check Backend Health on Mount or Gateway change
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`${activeGateway}/health`, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           setBackendStatus('healthy');
         } else {
@@ -78,7 +81,7 @@ export default function App() {
       }
     };
     checkHealth();
-  }, []);
+  }, [activeGateway]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function App() {
 
       // 1. PDF Upload -> Poll Status
       if (ext === 'pdf') {
-        const res = await fetch(`${BACKEND_URL}/api/v1/upload`, {
+        const res = await fetch(`${activeGateway}/api/v1/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -164,7 +167,7 @@ export default function App() {
         const maxPoll = 45;
         for (let i = 0; i < maxPoll; i++) {
           await new Promise((r) => setTimeout(r, 1500));
-          const statusRes = await fetch(`${BACKEND_URL}/api/v1/ingest/status/${jobId}`);
+          const statusRes = await fetch(`${activeGateway}/api/v1/ingest/status/${jobId}`);
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             if (statusData.status === 'PROCESSING') {
@@ -190,7 +193,7 @@ export default function App() {
       } 
       // 2. CSV Upload -> Direct Table Load
       else if (ext === 'csv') {
-        const res = await fetch(`${BACKEND_URL}/api/v1/sql/load-csv`, {
+        const res = await fetch(`${activeGateway}/api/v1/sql/load-csv`, {
           method: 'POST',
           body: formData,
         });
@@ -212,7 +215,7 @@ export default function App() {
       } 
       // 3. Image Upload -> Vision Registration
       else {
-        const res = await fetch(`${BACKEND_URL}/api/v1/vision/upload-image`, {
+        const res = await fetch(`${activeGateway}/api/v1/vision/upload-image`, {
           method: 'POST',
           body: formData,
         });
@@ -260,7 +263,7 @@ export default function App() {
         document_id: currentDoc ? currentDoc.name : null,
       };
 
-      const res = await fetch(`${BACKEND_URL}/api/v1/agent/query`, {
+      const res = await fetch(`${activeGateway}/api/v1/agent/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -389,26 +392,26 @@ export default function App() {
         {/* Clickable Logo */}
         <div className="nav-brand" onClick={handleLogoClick} title="Return to Dashboard">
           <div className="brand-badge">
-            <span className="spark-icon">✨</span>
+            <img src="/favicon.png" alt="OmniBrain" className="brand-logo-img" />
           </div>
           <div className="brand-text">
             <span className="brand-title">OmniBrain</span>
-            <span className="brand-tag">Multi-Modal Intelligence</span>
+            <span className="brand-tag">MULTI-MODAL INTELLIGENCE</span>
           </div>
         </div>
 
         {/* Desktop Navigation Links */}
         <div className="nav-desktop-links">
-          <button className="nav-link-btn" onClick={() => setCurrentView('app')}>
-            Dashboard
+          <button className="nav-link-btn active" onClick={() => setCurrentView('app')}>
+            DASHBOARD
           </button>
           <a
-            href={`${BACKEND_URL}/docs`}
+            href={`${activeGateway}/docs`}
             target="_blank"
             rel="noopener noreferrer"
             className="nav-link-btn"
           >
-            OpenAPI Docs ↗
+            OPENAPI DOCS ↗
           </a>
           <a
             href="https://github.com/vedantdubey19/Omni-Brain"
@@ -416,22 +419,22 @@ export default function App() {
             rel="noopener noreferrer"
             className="nav-link-btn"
           >
-            GitHub ↗
+            GITHUB ↗
           </a>
         </div>
 
         {/* Actions & Status */}
         <div className="nav-actions">
-          <div className={`status-pill ${backendStatus}`} title={`Backend: ${BACKEND_URL}`}>
+          <div className={`status-pill ${backendStatus}`} title={`Backend: ${activeGateway}`}>
             <span className="status-dot"></span>
             <span className="status-label">
-              {backendStatus === 'healthy' ? 'Gateway Live' : backendStatus === 'checking' ? 'Connecting...' : 'Offline'}
+              {backendStatus === 'healthy' ? 'GATEWAY LIVE' : backendStatus === 'checking' ? 'GATEWAY IDLE' : 'GATEWAY OFFLINE'}
             </span>
           </div>
 
           {messages.length > 0 && (
             <button className="clear-btn desktop-only" onClick={handleClearChat} title="Clear conversation">
-              Clear Chat
+              CLEAR CHAT
             </button>
           )}
 
@@ -447,6 +450,32 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Session & Gateway Control Strip */}
+      <div className="session-strip">
+        <div className="session-info">
+          <span className="session-label">— SESSION</span>
+          <span className="session-id">{sessionId}</span>
+        </div>
+        <div className="gateway-control">
+          <span className="gateway-label">GATEWAY</span>
+          <div className="gateway-input-box">
+            <input
+              type="text"
+              value={gatewayUrl}
+              onChange={(e) => setGatewayUrl(e.target.value)}
+              className="gateway-input"
+              placeholder="http://127.0.0.1:8000"
+              spellCheck="false"
+            />
+          </div>
+        </div>
+        {messages.length > 0 && (
+          <button className="clear-history-btn" onClick={handleClearChat}>
+            CLEAR HISTORY
+          </button>
+        )}
+      </div>
 
       {/* Mobile Navigation Drawer Overlay */}
       {mobileMenuOpen && (
@@ -522,19 +551,25 @@ export default function App() {
           {/* Hero Section */}
           <section className="hero-section">
             <div className="hero-pill">
-              <span className="sparkle">✦</span> LangGraph Agent Orchestrator
+              <span className="plus-sign">+</span> LANGGRAPH AGENT ORCHESTRATOR
             </div>
-            <h1 className="hero-title">Research, Financials & Vision Intelligence</h1>
+            <h1 className="hero-title">
+              Research, financials &amp; <span className="hero-accent">vision intelligence</span>
+            </h1>
             <p className="hero-subtitle">
-              Upload corporate PDFs, structured historical financial CSVs, or embedded charts.
-              LangGraph dynamically orchestrates each query across Search, SQL, and Vision agents.
+              Upload corporate PDFs, structured historical financial CSVs, or embedded charts. LangGraph
+              dynamically orchestrates each query across Search, SQL, and Vision agents.
             </p>
           </section>
 
           {/* Multi-File Ingestion Card */}
+          <div className="section-label-bar">
+            <span className="section-tag">— DOCUMENT &amp; DATA INGESTION</span>
+          </div>
+
           <section className="upload-card">
             <div className="card-header">
-              <span className="card-title">Document & Data Ingestion</span>
+              <span className="card-title">Document &amp; Data Ingestion</span>
               {currentDoc && (
                 <span className="active-doc-badge">
                   Active: <strong>{currentDoc.name}</strong> ({currentDoc.type.toUpperCase()})
@@ -558,12 +593,16 @@ export default function App() {
 
               {!file ? (
                 <div className="dropzone-content">
-                  <div className="upload-icon-circle">📂</div>
+                  <div className="folder-icon-box">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7C9F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </div>
                   <div className="dropzone-text">
-                    <strong>Click to upload</strong> or drag and drop files here
+                    <span className="click-upload">Click to upload</span> or drag and drop files here
                   </div>
                   <div className="dropzone-subtext">
-                    Supports PDF documents, CSV financial tables, and PNG/JPG charts (up to 25MB)
+                    SUPPORTS PDF DOCUMENTS, CSV FINANCIAL TABLES, AND PNG/JPG CHARTS (UP TO 25 MB)
                   </div>
                 </div>
               ) : (
@@ -773,6 +812,19 @@ export default function App() {
 
             <div ref={chatBottomRef} />
           </section>
+
+          {/* Bottom Technical Status Bar */}
+          <div className="tech-specs-bar">
+            <span>{activeGateway ? activeGateway.replace(/^https?:\/\//, '') : '127.0.0.1:8000'}</span>
+            <span className="spec-dot">•</span>
+            <span>LANGGRAPH</span>
+            <span className="spec-dot">•</span>
+            <span>SEARCH</span>
+            <span className="spec-dot">•</span>
+            <span>SQL</span>
+            <span className="spec-dot">•</span>
+            <span>VISION</span>
+          </div>
         </main>
       )}
 
@@ -851,7 +903,7 @@ export default function App() {
             <input
               type="text"
               className="query-input"
-              placeholder="Ask OmniBrain anything about your document, financials, or charts..."
+              placeholder="Ask about your document, financials, or charts..."
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -866,7 +918,7 @@ export default function App() {
               {loading ? (
                 <span className="button-spinner"></span>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"></line>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                 </svg>
@@ -881,7 +933,9 @@ export default function App() {
         <div className="footer-content">
           <div className="footer-col brand-col">
             <div className="footer-brand" onClick={handleLogoClick}>
-              <span className="brand-badge-small">✨</span>
+              <div className="brand-badge-small">
+                <img src="/favicon.png" alt="OmniBrain" />
+              </div>
               <span className="footer-brand-title">OmniBrain</span>
             </div>
             <p className="footer-tagline">
@@ -898,7 +952,7 @@ export default function App() {
 
           <div className="footer-col">
             <span className="footer-heading">Resources</span>
-            <a href={`${BACKEND_URL}/docs`} target="_blank" rel="noopener noreferrer" className="footer-link-btn">
+            <a href={`${activeGateway}/docs`} target="_blank" rel="noopener noreferrer" className="footer-link-btn">
               API Documentation ↗
             </a>
             <a href="https://github.com/vedantdubey19/Omni-Brain" target="_blank" rel="noopener noreferrer" className="footer-link-btn">

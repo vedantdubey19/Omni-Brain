@@ -1,19 +1,33 @@
 :root {
-  --bg-primary: #FFF5F7;
+  --bg-primary: #F0F7FD;
   --bg-card: #FFFFFF;
-  --bg-secondary: #FDF2F4;
-  --border-subtle: #FECDD3;
-  --border-active: #FB7185;
-  --primary-rose: #E11D48;
-  --primary-hover: #BE123C;
-  --primary-soft: #FFE4E6;
-  --text-main: #2E151E;
-  --text-muted: #64748B;
-  --text-subtle: #9F1239;
-  --shadow-sm: 0 1px 2px rgba(225, 29, 72, 0.05);
-  --shadow-md: 0 4px 12px rgba(225, 29, 72, 0.08);
-  --shadow-lg: 0 10px 25px rgba(225, 29, 72, 0.12);
-  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --bg-secondary: #EBF4FB;
+  --bg-tertiary: #E1EFF8;
+  --border-subtle: #CDE2F2;
+  --border-active: #4A7C9F;
+  --border-dashed: #A5C7E0;
+  
+  --primary-navy: #0F273D;
+  --primary-blue: #4A7C9F;
+  --primary-blue-hover: #376383;
+  --primary-soft: #E8F3FA;
+  
+  /* Legacy alias mappings to ensure zero broken styles */
+  --primary-rose: #4A7C9F;
+  --primary-hover: #376383;
+
+  --accent-slate: #5C7C96;
+  --text-main: #0F273D;
+  --text-muted: #4F6B82;
+  --text-subtle: #6D8FA8;
+
+  --shadow-sm: 0 1px 3px rgba(15, 39, 61, 0.05);
+  --shadow-md: 0 4px 14px rgba(74, 124, 159, 0.08);
+  --shadow-lg: 0 10px 28px rgba(74, 124, 159, 0.12);
+
+  --font-chalkboard: "Chalkboard SE", "Chalkboard", "Comic Neue", "Comic Sans MS", cursive, sans-serif;
+  --font-stack: "Chalkboard SE", "Chalkboard", "Comic Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
 }
 
 *, *::before, *::after {
@@ -32,6 +46,10 @@ html, body {
 body {
   font-family: var(--font-stack);
   background-color: var(--bg-primary);
+  background-image: 
+    linear-gradient(to right, rgba(160, 205, 235, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(160, 205, 235, 0.22) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -54,7 +72,7 @@ input, textarea {
 }
 
 code {
-  font-family: "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
+  font-family: var(--font-mono);
 }
 
 a {
