@@ -292,7 +292,7 @@ div[data-testid="stStatusWidget"] {
     letter-spacing: 0.02em;
 }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ==========================================
@@ -848,11 +848,11 @@ if active_query:
 # FOOTER
 # ==========================================
 
-st.markdown("""
+st.html("""
 <div class="footer-text">
     OmniBrain · Multi-Agent RAG · LangGraph · Qdrant
 </div>
-""", unsafe_allow_html=True)
+""")
 
 # Non-blocking footer injection: silence third-party extension console warnings (e.g., MetaMask contentscript.js)
 components.html("""
